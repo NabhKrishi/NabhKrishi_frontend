@@ -3,9 +3,17 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:latlong2/latlong.dart' hide Path;
+import '../../../../core/localization/app_localizations.dart';
+import '../../../language/providers/language_provider.dart';
+import '../../../location/presentation/widgets/farm_map_widget.dart';
+import '../../../location/providers/location_provider.dart';
+import '../../../irrigation/models/irrigation_models.dart';
+import '../../../irrigation/providers/irrigation_provider.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   final String language;
   final String farmerName;
 
@@ -21,10 +29,10 @@ class HomePage extends StatefulWidget {
   });
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMixin {
   int selectedIndex = 0;
 
   // Gentle up/down drift on the hero card — makes it feel like it's breathing.
@@ -35,8 +43,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // Draws the health ring in rather than snapping it straight to 82%.
   late final AnimationController _ringController;
-
-  bool get isHindi => widget.language == 'Hindi';
 
   @override
   void initState() {
@@ -60,6 +66,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted) _ringController.forward();
     });
+
+    // Initialize the language
+    Future.microtask(() {
+      ref.read(languageProvider.notifier).setLanguage(widget.language);
+    });
   }
 
   @override
@@ -72,6 +83,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
+
+
     return Scaffold(
       backgroundColor: const Color(0xFF031A22),
       extendBody: true,
@@ -85,7 +101,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               index: selectedIndex,
               children: [
                 _Dashboard(
-                  isHindi: isHindi,
                   farmerName: widget.farmerName,
                   streakDays: widget.streakDays,
                   floatController: _floatController,
@@ -218,13 +233,7 @@ class _PressableState extends State<_Pressable> {
     );
   }
 }
-
-// ============================================================================
-// DASHBOARD
-// ============================================================================
-
-class _Dashboard extends StatelessWidget {
-  final bool isHindi;
+class _Dashboard extends ConsumerWidget {
   final String farmerName;
   final int streakDays;
   final AnimationController floatController;
@@ -232,7 +241,6 @@ class _Dashboard extends StatelessWidget {
   final AnimationController ringController;
 
   const _Dashboard({
-    required this.isHindi,
     required this.farmerName,
     required this.streakDays,
     required this.floatController,
@@ -241,7 +249,12 @@ class _Dashboard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+    final confirmedLoc = ref.watch(confirmedLocationProvider);
+    final centroid = confirmedLoc.centroid;
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -256,7 +269,7 @@ class _Dashboard extends StatelessWidget {
               _Reveal(
                 controller: entranceController,
                 start: 0.03,
-                child: _StreakRibbon(isHindi: isHindi, streakDays: streakDays),
+                child: _StreakRibbon(streakDays: streakDays),
               ),
 
               const SizedBox(height: 22),
@@ -264,55 +277,52 @@ class _Dashboard extends StatelessWidget {
               _Reveal(
                 controller: entranceController,
                 start: 0.06,
-                child: _Greeting(isHindi: isHindi, farmerName: farmerName),
+                child: _Greeting(farmerName: farmerName),
               ),
 
               const SizedBox(height: 22),
 
+              // Farm Selection Map Card
               _Reveal(
                 controller: entranceController,
-                start: 0.12,
-                child: _FarmHero(
-                  isHindi: isHindi,
-                  floatController: floatController,
-                  ringController: ringController,
+                start: 0.1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionTitle(
+                      title: context.translate('select_farm_area', currentLanguage),
+                      subtitle: isHindi
+                          ? 'मानचित्र पर टैप करके सीमा बनाएं या खेत खोजें'
+                          : 'Draw boundary, search manually, or use your location',
+                    ),
+                    const SizedBox(height: 12),
+                    FarmMapWidget(
+                      onLocationConfirmed: () {
+                        // Confirm Farm Location: copies state from active locationProvider to confirmedLocationProvider
+                        final activeLoc = ref.read(locationProvider);
+                        ref.read(confirmedLocationProvider.notifier).state = activeLoc;
+                      },
+                    ),
+                    const _ManualCoordinatesInput(),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 25),
 
-              _Reveal(
-                controller: entranceController,
-                start: 0.18,
-                child: _WeatherCard(isHindi: isHindi),
+              // Dynamic Recommendation Section (rebuilds separately from map when state updates)
+              _RecommendationSection(
+                centroid: centroid,
+                floatController: floatController,
+                entranceController: entranceController,
+                ringController: ringController,
               ),
 
               const SizedBox(height: 30),
 
               _Reveal(
                 controller: entranceController,
-                start: 0.24,
-                child: _SectionTitle(
-                  title: isHindi ? 'आज आपके खेत के लिए' : 'For your farm today',
-                  subtitle: isHindi
-                      ? 'कुछ छोटा, लेकिन ज़रूरी।'
-                      : 'One small thing worth knowing.',
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              _Reveal(
-                controller: entranceController,
-                start: 0.28,
-                child: _AttentionCard(isHindi: isHindi),
-              ),
-
-              const SizedBox(height: 30),
-
-              _Reveal(
-                controller: entranceController,
-                start: 0.34,
+                start: 0.42,
                 child: _SectionTitle(
                   title: isHindi ? 'कुछ चाहिए?' : 'Need something?',
                   subtitle: isHindi ? 'NabhKrishi यहाँ है।' : 'NabhKrishi is here.',
@@ -323,8 +333,8 @@ class _Dashboard extends StatelessWidget {
 
               _Reveal(
                 controller: entranceController,
-                start: 0.4,
-                child: _HumanActions(isHindi: isHindi),
+                start: 0.45,
+                child: const _HumanActions(),
               ),
 
               const SizedBox(height: 30),
@@ -332,7 +342,7 @@ class _Dashboard extends StatelessWidget {
               _Reveal(
                 controller: entranceController,
                 start: 0.48,
-                child: _NabhMessage(isHindi: isHindi),
+                child: _NabhMessage(),
               ),
 
               const SizedBox(height: 20),
@@ -344,15 +354,13 @@ class _Dashboard extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// TOP BAR
-// ============================================================================
-
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   const _TopBar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+
     return Row(
       children: [
         Row(
@@ -389,9 +397,54 @@ class _TopBar extends StatelessWidget {
           ],
         ),
         const Spacer(),
+        // Language Toggle EN | हिंदी
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  ref.read(languageProvider.notifier).setLanguage('English');
+                },
+                child: Text(
+                  'EN',
+                  style: GoogleFonts.poppins(
+                    color: currentLanguage == 'English' ? const Color(0xFF70E8B9) : Colors.white30,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Text('|', style: TextStyle(color: Colors.white24, fontSize: 10)),
+              ),
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  ref.read(languageProvider.notifier).setLanguage('Hindi');
+                },
+                child: Text(
+                  'हिंदी',
+                  style: GoogleFonts.poppins(
+                    color: currentLanguage == 'Hindi' ? const Color(0xFF70E8B9) : Colors.white30,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
         _SmallButton(icon: Icons.notifications_none_rounded, dot: true, onTap: () {}),
-        const SizedBox(width: 8),
-        _SmallButton(icon: Icons.person_outline_rounded, onTap: () {}),
       ],
     );
   }
@@ -441,14 +494,19 @@ class _SmallButton extends StatelessWidget {
 // STREAK RIBBON — the "we've been doing this together" touch.
 // ============================================================================
 
-class _StreakRibbon extends StatelessWidget {
-  final bool isHindi;
+// ============================================================================
+// STREAK RIBBON
+// ============================================================================
+
+class _StreakRibbon extends ConsumerWidget {
   final int streakDays;
 
-  const _StreakRibbon({required this.isHindi, required this.streakDays});
+  const _StreakRibbon({required this.streakDays});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
     final label = isHindi
         ? 'साथ में $streakDays दिन 🌱'
         : '$streakDays days together 🌱';
@@ -476,16 +534,15 @@ class _StreakRibbon extends StatelessWidget {
 }
 
 // ============================================================================
-// GREETING — personal, time-aware, not a template string.
+// GREETING
 // ============================================================================
 
-class _Greeting extends StatelessWidget {
-  final bool isHindi;
+class _Greeting extends ConsumerWidget {
   final String farmerName;
 
-  const _Greeting({required this.isHindi, required this.farmerName});
+  const _Greeting({required this.farmerName});
 
-  String _timeGreeting() {
+  String _timeGreeting(bool isHindi) {
     final hour = DateTime.now().hour;
     if (hour < 12) return isHindi ? 'सुप्रभात' : 'Good morning';
     if (hour < 17) return isHindi ? 'नमस्ते' : 'Good afternoon';
@@ -493,7 +550,9 @@ class _Greeting extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
     final name = farmerName.trim().isEmpty
         ? (isHindi ? 'किसान' : 'friend')
         : farmerName.trim();
@@ -502,7 +561,7 @@ class _Greeting extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${_timeGreeting()}, $name',
+          '${_timeGreeting(isHindi)}, $name',
           style: GoogleFonts.poppins(
             color: const Color(0xFF6DE5B7),
             fontSize: 13,
@@ -511,7 +570,7 @@ class _Greeting extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          isHindi ? 'आज आपके खेत के लिए\nएक अच्छी खबर है।' : 'Your farm is having\na good day.',
+          isHindi ? 'नभकृषि डैशबोर्ड में\nआपका स्वागत है।' : 'Welcome to your\nNabhKrishi dashboard.',
           style: isHindi
               ? GoogleFonts.poppins(color: Colors.white, fontSize: 28, height: 1.16, fontWeight: FontWeight.w700)
               : GoogleFonts.fraunces(
@@ -526,8 +585,8 @@ class _Greeting extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isHindi
-              ? 'बस एक छोटी सी चीज़ पर ध्यान देना है।'
-              : 'There\u2019s just one little thing worth checking.',
+              ? 'सिफारिश देखने के लिए नीचे दी गई जानकारी देखें।'
+              : 'Review your personalized agricultural metrics below.',
           style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11, height: 1.5),
         ),
       ],
@@ -536,30 +595,30 @@ class _Greeting extends StatelessWidget {
 }
 
 // ============================================================================
-// FARM HERO
+// FARM HERO (DQN Recommendation Card)
 // ============================================================================
 
-class _FarmHero extends StatelessWidget {
-  final bool isHindi;
+class _FarmHero extends ConsumerWidget {
+  final Recommendation recommendation;
   final AnimationController floatController;
   final AnimationController ringController;
 
   const _FarmHero({
-    required this.isHindi,
+    required this.recommendation,
     required this.floatController,
     required this.ringController,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
     return AnimatedBuilder(
       animation: floatController,
       builder: (context, child) {
         final t = floatController.value;
         final movement = (t - 0.5) * 8;
-        // A hair of rotation alongside the float — a card that only ever
-        // moves straight up and down reads as a CSS keyframe, not a
-        // physical object settling.
         final tilt = math.sin(t * math.pi) * 0.006;
         return Transform.translate(
           offset: Offset(0, movement),
@@ -605,7 +664,7 @@ class _FarmHero extends StatelessWidget {
               right: 15,
               bottom: -12,
               child: Icon(
-                Icons.grass_rounded,
+                Icons.water_drop_rounded,
                 size: 115,
                 color: const Color(0xFF8EF1CA).withValues(alpha: 0.045),
               ),
@@ -620,8 +679,9 @@ class _FarmHero extends StatelessWidget {
                     child: AnimatedBuilder(
                       animation: ringController,
                       builder: (context, _) {
-                        final progress = Curves.easeOutCubic.transform(ringController.value) * 0.82;
-                        final shown = (progress * 100).round();
+                        // Action-based progress representation (0.0 to 1.0 based on max 25mm action)
+                        final rawProgress = recommendation.irrigationMm / 25.0;
+                        final progress = Curves.easeOutCubic.transform(ringController.value) * rawProgress;
                         return Stack(
                           alignment: Alignment.center,
                           children: [
@@ -630,7 +690,7 @@ class _FarmHero extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  '$shown',
+                                  '${recommendation.irrigationMm.toInt()}',
                                   style: GoogleFonts.poppins(
                                     color: Colors.white,
                                     fontSize: 41,
@@ -640,10 +700,10 @@ class _FarmHero extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  isHindi ? 'स्वस्थ' : 'LOOKING GOOD',
+                                  'MM',
                                   style: GoogleFonts.poppins(
                                     color: const Color(0xFF78EAC0),
-                                    fontSize: 8,
+                                    fontSize: 9,
                                     letterSpacing: 1.4,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -655,36 +715,37 @@ class _FarmHero extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          isHindi ? 'आपका खेत' : 'Your farm',
-                          style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11),
+                          context.translate('irrigation_recommendation', currentLanguage).toUpperCase(),
+                          style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(
-                          isHindi ? 'आज खुश लग रहा है।' : 'Feels healthy today.',
-                          style: GoogleFonts.poppins(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600),
+                          recommendation.irrigationMm > 0
+                              ? context.translate('apply_irrigation', currentLanguage, arguments: {'amount': '${recommendation.irrigationMm.toInt()}'})
+                              : context.translate('no_irrigation', currentLanguage),
+                          style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, height: 1.2),
                         ),
                         const SizedBox(height: 9),
                         Text(
                           isHindi
-                              ? 'मिट्टी और फसल के संकेत सामान्य हैं।'
-                              : 'Your soil and crop signals are looking healthy.',
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 10, height: 1.5),
+                              ? 'मौसम और उपग्रह आंकड़ों के आधार पर सुरक्षित निर्णय।'
+                              : 'Recommended amount calculated directly from active weather and Sentinel-1 radar readings.',
+                          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 10, height: 1.4),
                         ),
                         const SizedBox(height: 14),
                         Row(
                           children: [
-                            _MiniStatus(icon: Icons.landscape_outlined, label: isHindi ? 'मिट्टी अच्छी' : 'Soil good'),
-                            const SizedBox(width: 8),
-                            _MiniStatus(icon: Icons.grass_rounded, label: isHindi ? 'फसल स्वस्थ' : 'Crop healthy'),
+                            _MiniStatus(
+                              icon: Icons.check_circle_outline_rounded,
+                              label: isHindi ? 'डीक्यूएन मॉडल सत्यापित' : 'DQN model verified',
+                            ),
                           ],
                         ),
                       ],
@@ -712,58 +773,136 @@ class _MiniStatus extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: const Color(0xFF75E8BC)),
         const SizedBox(width: 4),
-        Text(label, style: GoogleFonts.poppins(color: Colors.white54, fontSize: 8)),
+        Text(label, style: GoogleFonts.poppins(color: Colors.white54, fontSize: 8.5)),
       ],
     );
   }
 }
 
 // ============================================================================
-// WEATHER
+// WEATHER CARD
 // ============================================================================
 
-class _WeatherCard extends StatelessWidget {
-  final bool isHindi;
+class _WeatherCard extends ConsumerWidget {
+  final WeatherFeatures weather;
 
-  const _WeatherCard({required this.isHindi});
+  const _WeatherCard({required this.weather});
+
+  String _weatherSummary(bool isHindi) {
+    if (weather.tempMean > 30.0 && weather.humidityMean < 50.0) {
+      return isHindi ? 'गर्म और अपेक्षाकृत शुष्क दिन' : 'Warm and relatively dry weather';
+    } else if (weather.rain7d > 20.0) {
+      return isHindi ? 'हाल ही में भारी वर्षा हुई है' : 'Recent rainfall is high';
+    } else if (weather.et07d > 25.0) {
+      return isHindi ? 'पानी की मांग बढ़ी हुई है' : 'Water demand is currently elevated';
+    } else {
+      return isHindi ? 'सामान्य और स्थिर मौसम' : 'Stable weather conditions';
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.043),
-        borderRadius: BorderRadius.circular(21),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFD77C).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.wb_sunny_outlined, color: Color(0xFFFFD77C), size: 22),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text('27°C', style: GoogleFonts.poppins(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-              Text(
-                isHindi ? 'आज शाम गर्मी रहेगी' : 'A warm evening ahead',
-                style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9),
+              Container(
+                width: 43,
+                height: 43,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD77C).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.wb_sunny_outlined, color: Color(0xFFFFD77C), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${weather.tempMean.toStringAsFixed(1)}°C',
+                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _weatherSummary(isHindi),
+                    style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              _WeatherValue(icon: Icons.water_drop_outlined, value: '${weather.humidityMean.toInt()}%'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 16),
+          // Expanded weather telemetry metrics
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _WeatherMetricItem(
+                label: context.translate('rainfall_7d', currentLanguage),
+                value: '${weather.rain7d.toStringAsFixed(1)} mm',
+                icon: Icons.grain_rounded,
+              ),
+              _WeatherMetricItem(
+                label: context.translate('rainfall_14d', currentLanguage),
+                value: '${weather.rain14d.toStringAsFixed(1)} mm',
+                icon: Icons.umbrella_rounded,
+              ),
+              _WeatherMetricItem(
+                label: context.translate('et0_7d', currentLanguage),
+                value: '${weather.et07d.toStringAsFixed(1)} mm',
+                icon: Icons.air_rounded,
               ),
             ],
           ),
-          const Spacer(),
-          _WeatherValue(icon: Icons.water_drop_outlined, value: '72%'),
-          const SizedBox(width: 12),
-          _WeatherValue(icon: Icons.air_rounded, value: '12 km/h'),
         ],
       ),
+    );
+  }
+}
+
+class _WeatherMetricItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _WeatherMetricItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: const Color(0xFF76EABF), size: 18),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(color: Colors.white30, fontSize: 8),
+        ),
+      ],
     );
   }
 }
@@ -778,9 +917,9 @@ class _WeatherValue extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 13, color: Colors.white30),
+        Icon(icon, size: 14, color: const Color(0xFFFFD77C)),
         const SizedBox(width: 4),
-        Text(value, style: GoogleFonts.poppins(color: Colors.white54, fontSize: 8.5)),
+        Text(value, style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -803,7 +942,7 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+          style: GoogleFonts.poppins(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.w600, letterSpacing: -0.3),
         ),
         const SizedBox(height: 3),
         Text(subtitle, style: GoogleFonts.poppins(color: Colors.white30, fontSize: 9.5)),
@@ -813,58 +952,432 @@ class _SectionTitle extends StatelessWidget {
 }
 
 // ============================================================================
-// ATTENTION — now tappable, with a soft press response.
+// ATTENTION CARD (Field Water Condition Indicator)
 // ============================================================================
 
-class _AttentionCard extends StatelessWidget {
-  final bool isHindi;
+class _AttentionCard extends ConsumerWidget {
+  final WeatherFeatures weather;
+  final SentinelFeatures sentinel;
 
-  const _AttentionCard({required this.isHindi});
+  const _AttentionCard({
+    required this.weather,
+    required this.sentinel,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
+    // Estimating Field Water Condition based on deficit threshold
+    String conditionText = '';
+    Color accentColor = const Color(0xFF72E6BA);
+    Color cardBgColor = const Color(0xFF092B32);
+    IconData icon = Icons.water_drop_outlined;
+
+    if (weather.deficit7d < 10.0) {
+      conditionText = context.translate('low_stress', currentLanguage);
+      accentColor = const Color(0xFF72E6BA);
+      cardBgColor = const Color(0xFF082B24);
+      icon = Icons.check_circle_outline_rounded;
+    } else if (weather.deficit7d >= 10.0 && weather.deficit7d < 25.0) {
+      conditionText = context.translate('moderate_requirement', currentLanguage);
+      accentColor = const Color(0xFFFFD77B);
+      cardBgColor = const Color(0xFF1D261C);
+      icon = Icons.water_drop_outlined;
+    } else {
+      conditionText = context.translate('high_deficit', currentLanguage);
+      accentColor = const Color(0xFFFF8B8B);
+      cardBgColor = const Color(0xFF2C161D);
+      icon = Icons.warning_amber_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBgColor,
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(color: accentColor.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: accentColor, size: 24),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.translate('estimated_water_condition', currentLanguage),
+                  style: GoogleFonts.poppins(color: Colors.white54, fontSize: 9.5, fontWeight: FontWeight.bold, letterSpacing: 0.4),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  conditionText,
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isHindi
+                      ? 'अनुमानित जल घाटा: ${weather.deficit7d.toStringAsFixed(1)} मिमी (यह उपग्रह और जल-संतुलन पर आधारित एक अनुमान है)'
+                      : 'Estimated Water Deficit: ${weather.deficit7d.toStringAsFixed(1)} mm (clearly labeled as estimate)',
+                  style: GoogleFonts.poppins(color: Colors.white38, fontSize: 8.5, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SATELLITE CARD
+// ============================================================================
+
+class _SatelliteCard extends ConsumerStatefulWidget {
+  final SentinelFeatures sentinel;
+
+  const _SatelliteCard({required this.sentinel});
+
+  @override
+  ConsumerState<_SatelliteCard> createState() => _SatelliteCardState();
+}
+
+class _SatelliteCardState extends ConsumerState<_SatelliteCard> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
-    return _Pressable(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: const Color(0xFF172B32),
-          borderRadius: BorderRadius.circular(23),
-          border: Border.all(color: const Color(0xFFE6C66B).withValues(alpha: 0.14)),
-        ),
-        child: Row(
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8DC7FF).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.satellite_alt_rounded, color: Color(0xFF8DC7FF), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isHindi ? 'सेंटिनल-1 फ्रेशनेस' : 'Satellite Freshness',
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      context.translate('satellite_freshness', currentLanguage, arguments: {
+                        'days': '${widget.sentinel.sentinelAgeDays.toInt()}'
+                      }),
+                      style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5),
+                    ),
+                  ],
+                ),
+              ),
+              // More details button
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  backgroundColor: Colors.white.withValues(alpha: 0.04),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      context.translate('more_details', currentLanguage),
+                      style: GoogleFonts.poppins(color: const Color(0xFF8DC7FF), fontSize: 9.5, fontWeight: FontWeight.bold),
+                    ),
+                    Icon(
+                      _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      color: const Color(0xFF8DC7FF),
+                      size: 14,
+                    ),
+                  ],
+                ),
+                onPressed: () {
+                  setState(() {
+                    _expanded = !_expanded;
+                  });
+                },
+              ),
+            ],
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 16),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 14),
+            // Technical observation metrics
+            _SatelliteMetricRow(
+              label: context.translate('vv_mean', currentLanguage),
+              value: '${widget.sentinel.vvMean.toStringAsFixed(2)} dB',
+              description: isHindi
+                  ? 'समतल क्षेत्र पर औसत रडार बैकस्कैटर परावर्तन।'
+                  : 'Mean backscatter value representing surface roughness/soil state.',
+            ),
+            const SizedBox(height: 12),
+            _SatelliteMetricRow(
+              label: context.translate('vv_change', currentLanguage),
+              value: '${widget.sentinel.vvChange.toStringAsFixed(2)} dB',
+              description: isHindi
+                  ? 'पिछली सैटेलाइट पास से रडार सिग्नल में आया बदलाव।'
+                  : 'Radar reflection trend changes indicating wetness fluctuation.',
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.only(top: 6.0),
+              child: Text(
+                isHindi
+                    ? 'नोट: सेंटिनल-1 सीधे मिट्टी की नमी नहीं मापता है। ये मॉडल में उपयोग किए जाने वाले उपग्रह रडार संकेतक हैं।'
+                    : 'Accuracy warning: Sentinel-1 does not directly measure soil moisture. These are satellite backscatter features utilized by DQN model.',
+                style: GoogleFonts.poppins(color: Colors.white24, fontSize: 8, fontStyle: FontStyle.italic, height: 1.4),
+              ),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+class _SatelliteMetricRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final String description;
+
+  const _SatelliteMetricRow({
+    required this.label,
+    required this.value,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE7C96E).withValues(alpha: 0.09),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Icon(Icons.water_drop_outlined, color: Color(0xFFF0D77E), size: 24),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isHindi ? 'शायद आज पानी देना सही रहेगा' : 'Your field may need some water',
-                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isHindi ? 'शाम को तापमान बढ़ने वाला है।' : 'Temperatures are expected to rise this evening.',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, height: 1.4),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_rounded, color: Colors.white24, size: 18),
+            Text(label, style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600)),
+            Text(value, style: GoogleFonts.poppins(color: const Color(0xFF8DC7FF), fontSize: 12, fontWeight: FontWeight.bold)),
           ],
         ),
+        const SizedBox(height: 3),
+        Text(description, style: GoogleFonts.poppins(color: Colors.white30, fontSize: 8.5, height: 1.3)),
+      ],
+    );
+  }
+}
+
+// ============================================================================
+// EXPLANATION CARD
+// ============================================================================
+
+class _ExplanationCard extends ConsumerWidget {
+  final LocationPredictionResponse response;
+
+  const _ExplanationCard({required this.response});
+
+  String _generateExplanation(bool isHindi) {
+    final rain7d = response.weatherFeatures.rain7d;
+    final deficit7d = response.weatherFeatures.deficit7d;
+    final et07d = response.weatherFeatures.et07d;
+    final amount = response.recommendation.irrigationMm;
+
+    if (amount == 0.0) {
+      if (rain7d > 15.0) {
+        return isHindi
+            ? 'हाल ही में $rain7d मिमी वर्षा पर्याप्त रही है, और अनुमानित जल की कमी कम ($deficit7d मिमी) है, इसलिए प्रणाली सिंचाई की सिफारिश नहीं करती है।'
+            : 'Recent rainfall of ${rain7d.toStringAsFixed(1)} mm has been sufficient, and estimated water deficit is low (${deficit7d.toStringAsFixed(1)} mm), so irrigation is not recommended.';
+      } else {
+        return isHindi
+            ? 'अनुमानित जल घाटा स्थिर है और मिट्टी में जल संतुलन संतोषजनक लग रहा है, इसलिए वर्तमान में अतिरिक्त सिंचाई की आवश्यकता नहीं है।'
+            : 'Estimated water balance is stable and evapotranspiration demands are low, so no additional irrigation is required.';
+      }
+    } else {
+      if (deficit7d > 10.0 || rain7d < 10.0) {
+        return isHindi
+            ? 'हाल ही में वर्षा कम (${rain7d.toStringAsFixed(1)} मिमी) हुई है और अनुमानित जल की कमी अधिक (${deficit7d.toStringAsFixed(1)} मिमी) है, इसलिए सिस्टम ${amount.toInt()} मिमी सिंचाई की सलाह देता है।'
+            : 'Recent rainfall has been low (${rain7d.toStringAsFixed(1)} mm) and estimated water deficit is high (${deficit7d.toStringAsFixed(1)} mm), so the system recommends applying ${amount.toInt()} mm of irrigation.';
+      } else {
+        return isHindi
+            ? 'हाल की वर्षा की तुलना में पानी की मांग (${et07d.toStringAsFixed(1)} मिमी) अधिक है, इसलिए सिस्टम ${amount.toInt()} मिमी सिंचाई की सलाह देता है।'
+            : 'Evapotranspiration demands (${et07d.toStringAsFixed(1)} mm) are elevated compared to recent rainfall, so the system recommends applying ${amount.toInt()} mm of irrigation.';
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Text(
+        _generateExplanation(isHindi),
+        style: GoogleFonts.poppins(
+          color: Colors.white70,
+          fontSize: 11,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// LOADING CARD
+// ============================================================================
+
+class _LoadingCard extends StatelessWidget {
+  final String stageKey;
+  final String currentLanguage;
+
+  const _LoadingCard({
+    required this.stageKey,
+    required this.currentLanguage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFF6CE6B6).withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          const SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3.5,
+              color: Color(0xFF6CE6B6),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            context.translate(stageKey, currentLanguage),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            currentLanguage == 'Hindi'
+                ? 'कृपया प्रतीक्षा करें, गणना की जा रही है...'
+                : 'Processing telemetry through Nabh DQN models...',
+            style: GoogleFonts.poppins(color: Colors.white30, fontSize: 9.5),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// ERROR CARD
+// ============================================================================
+
+class _ErrorCard extends StatelessWidget {
+  final String errorKey;
+  final String currentLanguage;
+  final VoidCallback onRetry;
+
+  const _ErrorCard({
+    required this.errorKey,
+    required this.currentLanguage,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C161D),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFFF8B8B).withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF8B8B), size: 38),
+          const SizedBox(height: 14),
+          Text(
+            context.translate('error_title', currentLanguage),
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.translate(errorKey, currentLanguage),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: Colors.white70,
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8B8B).withValues(alpha: 0.12),
+              foregroundColor: const Color(0xFFFF8B8B),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+              side: const BorderSide(color: Color(0xFFFF8B8B), width: 1),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: Text(
+              context.translate('retry_button', currentLanguage),
+              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+            onPressed: onRetry,
+          ),
+        ],
       ),
     );
   }
@@ -874,17 +1387,14 @@ class _AttentionCard extends StatelessWidget {
 // HUMAN ACTIONS
 // ============================================================================
 
-class _HumanActions extends StatelessWidget {
-  final bool isHindi;
-
-  const _HumanActions({required this.isHindi});
+class _HumanActions extends ConsumerWidget {
+  const _HumanActions();
 
   @override
-  Widget build(BuildContext context) {
-    // Ask Nabh gets the most real estate — it's the thing a first-time,
-    // low-literacy user is most likely to reach for, so the layout says
-    // that before any copy does. Everything else sits underneath, unequal
-    // on purpose, instead of four identical tiles in a grid.
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
     return Column(
       children: [
         _ActionCard(
@@ -968,8 +1478,6 @@ class _ActionCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: wide ? 18 : 14, vertical: wide ? 14 : 14),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.042),
-        // Slightly uneven corners rather than a perfect uniform radius —
-        // small enough not to look broken, distinct enough not to look CAD-drawn.
         borderRadius: wide
             ? BorderRadius.circular(22)
             : const BorderRadius.only(
@@ -1053,20 +1561,17 @@ class _ActionCard extends StatelessWidget {
 }
 
 // ============================================================================
-// NABH MESSAGE — Nabh now visibly "breathes" and shows it's present,
-// like someone who's actually paying attention to your farm.
+// NABH MESSAGE
 // ============================================================================
 
-class _NabhMessage extends StatefulWidget {
-  final bool isHindi;
-
-  const _NabhMessage({required this.isHindi});
+class _NabhMessage extends ConsumerStatefulWidget {
+  const _NabhMessage();
 
   @override
-  State<_NabhMessage> createState() => _NabhMessageState();
+  ConsumerState<_NabhMessage> createState() => _NabhMessageState();
 }
 
-class _NabhMessageState extends State<_NabhMessage> with SingleTickerProviderStateMixin {
+class _NabhMessageState extends ConsumerState<_NabhMessage> with SingleTickerProviderStateMixin {
   late final AnimationController _breathController;
 
   @override
@@ -1083,7 +1588,8 @@ class _NabhMessageState extends State<_NabhMessage> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    final isHindi = widget.isHindi;
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 17, 18, 17),
@@ -1143,8 +1649,8 @@ class _NabhMessageState extends State<_NabhMessage> with SingleTickerProviderSta
                 const SizedBox(height: 4),
                 Text(
                   isHindi
-                      ? '"आपका खेत आज अच्छा कर रहा है। बस पानी पर थोड़ा ध्यान रखिए।"'
-                      : '"Your farm is doing well today. Just keep an eye on the water."',
+                      ? '"आपकी फसल स्वस्थ स्थिति में है। बस पानी की सिफारिश पर ध्यान रखें।"'
+                      : '"Your crops look stable. Keep monitoring recommendations for optimal watering."',
                   style: GoogleFonts.poppins(color: Colors.white60, fontSize: 10, height: 1.5),
                 ),
               ],
@@ -1538,5 +2044,295 @@ class _RingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) {
     return oldDelegate.progress != progress;
+  }
+}
+
+// ============================================================================
+// RECOMMENDATION SECTION (Performance Isolated State Watcher)
+// ============================================================================
+
+class _RecommendationSection extends ConsumerWidget {
+  final LatLng centroid;
+  final AnimationController floatController;
+  final AnimationController entranceController;
+  final AnimationController ringController;
+
+  const _RecommendationSection({
+    required this.centroid,
+    required this.floatController,
+    required this.entranceController,
+    required this.ringController,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+    final coordinateKey = '${centroid.latitude.toStringAsFixed(4)},${centroid.longitude.toStringAsFixed(4)}';
+    final irrigationState = ref.watch(irrigationProvider(coordinateKey));
+
+    if (irrigationState.isLoading) {
+      return _Reveal(
+        controller: entranceController,
+        start: 0.15,
+        child: _LoadingCard(
+          stageKey: irrigationState.loadingStage,
+          currentLanguage: currentLanguage,
+        ),
+      );
+    } else if (irrigationState.errorMessage != null) {
+      return _Reveal(
+        controller: entranceController,
+        start: 0.15,
+        child: _ErrorCard(
+          errorKey: irrigationState.errorMessage!,
+          currentLanguage: currentLanguage,
+          onRetry: () {
+            ref.read(irrigationProvider(coordinateKey).notifier)
+                .fetchRecommendation(centroid.latitude, centroid.longitude);
+          },
+        ),
+      );
+    } else if (irrigationState.data != null) {
+      final data = irrigationState.data!;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Reveal(
+            controller: entranceController,
+            start: 0.15,
+            child: _FarmHero(
+              recommendation: data.recommendation,
+              floatController: floatController,
+              ringController: ringController,
+            ),
+          ),
+          const SizedBox(height: 22),
+          _Reveal(
+            controller: entranceController,
+            start: 0.20,
+            child: _WeatherCard(weather: data.weatherFeatures),
+          ),
+          const SizedBox(height: 25),
+          _Reveal(
+            controller: entranceController,
+            start: 0.25,
+            child: _SectionTitle(
+              title: context.translate('field_condition', currentLanguage),
+              subtitle: isHindi
+                  ? 'मिट्टी की जल सामग्री और उपग्रह अवलोकनों का अनुमान'
+                  : 'Water deficit assessment and latest satellite readings',
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Reveal(
+            controller: entranceController,
+            start: 0.28,
+            child: _AttentionCard(
+              weather: data.weatherFeatures,
+              sentinel: data.sentinelFeatures,
+            ),
+          ),
+          const SizedBox(height: 25),
+          _Reveal(
+            controller: entranceController,
+            start: 0.32,
+            child: _SectionTitle(
+              title: context.translate('satellite_section', currentLanguage),
+              subtitle: isHindi
+                  ? 'सेंटिनल-1 उपग्रह सक्रिय रडार माप'
+                  : 'Sentinel-1 active radar telemetry indicators',
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Reveal(
+            controller: entranceController,
+            start: 0.35,
+            child: _SatelliteCard(sentinel: data.sentinelFeatures),
+          ),
+          const SizedBox(height: 25),
+          _Reveal(
+            controller: entranceController,
+            start: 0.38,
+            child: _SectionTitle(
+              title: context.translate('explanation_title', currentLanguage),
+              subtitle: isHindi
+                  ? 'मौसम और उपग्रह आंकड़ों का विश्लेषण'
+                  : 'Calculated from cumulative rain, evapotranspiration, and radar change',
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Reveal(
+            controller: entranceController,
+            start: 0.40,
+            child: _ExplanationCard(
+              response: data,
+            ),
+          ),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
+  }
+}
+
+// ============================================================================
+// MANUAL COORDINATES INPUT WIDGET
+// ============================================================================
+
+class _ManualCoordinatesInput extends ConsumerStatefulWidget {
+  const _ManualCoordinatesInput();
+
+  @override
+  ConsumerState<_ManualCoordinatesInput> createState() => _ManualCoordinatesInputState();
+}
+
+class _ManualCoordinatesInputState extends ConsumerState<_ManualCoordinatesInput> {
+  final TextEditingController _latController = TextEditingController();
+  final TextEditingController _lngController = TextEditingController();
+  String? _validationError;
+
+  @override
+  void dispose() {
+    _latController.dispose();
+    _lngController.dispose();
+    super.dispose();
+  }
+
+  void _locateFarm(bool isHindi) {
+    final latVal = double.tryParse(_latController.text);
+    final lngVal = double.tryParse(_lngController.text);
+
+    if (latVal == null || latVal < -90.0 || latVal > 90.0) {
+      setState(() {
+        _validationError = isHindi ? 'अमान्य अक्षांश (-90 से 90)' : 'Invalid Latitude (-90 to 90)';
+      });
+      return;
+    }
+
+    if (lngVal == null || lngVal < -180.0 || lngVal > 180.0) {
+      setState(() {
+        _validationError = isHindi ? 'अमान्य देशांतर (-180 से 180)' : 'Invalid Longitude (-180 to 180)';
+      });
+      return;
+    }
+
+    setState(() {
+      _validationError = null;
+    });
+
+    FocusScope.of(context).unfocus();
+    ref.read(locationProvider.notifier).updateCoordinate(latVal, lngVal);
+    ref.read(locationProvider.notifier).clearBoundary(); // Reset boundary for manual point search
+    
+    // Automatically confirm/select the farm location on manual search
+    final activeLoc = ref.read(locationProvider);
+    ref.read(confirmedLocationProvider.notifier).state = activeLoc;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _CoordinateField(
+                controller: _latController,
+                label: isHindi ? 'अक्षांश (Lat)' : 'Latitude',
+                hint: '28.6139',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _CoordinateField(
+                controller: _lngController,
+                label: isHindi ? 'देशांतर (Lng)' : 'Longitude',
+                hint: '77.2090',
+              ),
+            ),
+          ],
+        ),
+        if (_validationError != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _validationError!,
+            style: GoogleFonts.poppins(color: const Color(0xFFFF8B8B), fontSize: 10, fontWeight: FontWeight.w500),
+          ),
+        ],
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6CE6B6).withValues(alpha: 0.08),
+              foregroundColor: const Color(0xFF6CE6B6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFF6CE6B6), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.search_rounded, size: 16),
+            label: Text(
+              isHindi ? 'खेत का स्थान खोजें' : 'Locate Farm',
+              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () => _locateFarm(isHindi),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CoordinateField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+
+  const _CoordinateField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 9.5, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+            style: GoogleFonts.poppins(color: Colors.white, fontSize: 12.5),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              hintText: hint,
+              hintStyle: GoogleFonts.poppins(color: Colors.white24, fontSize: 12.5),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

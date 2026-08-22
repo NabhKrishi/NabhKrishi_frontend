@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.12.2
+  sdk: ">=3.11.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -15,11 +15,16 @@ dependencies:
   flutter_animate: ^4.5.2
   flutter_svg: ^2.2.0
   google_fonts: ^6.3.0
-  lottie: ^3.5.1
+  lottie: ^2.7.0
   shared_preferences: ^2.5.5
   firebase_core: ^4.13.0
   firebase_auth: ^6.5.7
   google_sign_in: ^7.2.0
+  flutter_riverpod: ^2.5.1
+  geolocator: ^11.0.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:
