@@ -21,8 +21,6 @@ class FarmMapWidget extends ConsumerStatefulWidget {
 
 class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
   final MapController _mapController = MapController();
-  bool _isLocating = false;
-  String? _gpsError;
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +57,12 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
                 initialCenter: mapCenter,
                 initialZoom: 14.0,
                 onTap: (tapPosition, point) {
-                  // Add vertex to boundary polygon
-                  ref.read(locationProvider.notifier).addBoundaryPoint(point);
-                  // Update center to centroid
-                  final centroid = ref.read(locationProvider).centroid;
-                  ref.read(locationProvider.notifier).updateCoordinate(centroid.latitude, centroid.longitude);
+                  if (locationData.isDrawing) {
+                    ref.read(locationProvider.notifier).addBoundaryPoint(point);
+                  } else {
+                    ref.read(locationProvider.notifier).updateCoordinate(point.latitude, point.longitude);
+                    ref.read(locationProvider.notifier).clearBoundary();
+                  }
                 },
               ),
               children: [
@@ -152,9 +151,13 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
                   border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: Text(
-                  locationData.boundary.length < 3
-                      ? context.translate('draw_instruction', currentLanguage)
-                      : '${context.translate('farm_boundary', currentLanguage)}: ${locationData.boundary.length} ${currentLanguage == 'Hindi' ? 'बिंदु' : 'points'}',
+                  !locationData.isDrawing
+                      ? (currentLanguage == 'Hindi'
+                          ? 'खेत का स्थान चुनने के लिए मानचित्र पर टैप करें, या सीमा खींचना शुरू करें।'
+                          : 'Tap on the map to locate your farm, or start drawing.')
+                      : (locationData.boundary.length < 3
+                          ? context.translate('draw_instruction', currentLanguage)
+                          : '${context.translate('farm_boundary', currentLanguage)}: ${locationData.boundary.length} ${currentLanguage == 'Hindi' ? 'बिंदु' : 'points'}'),
                   style: GoogleFonts.poppins(color: const Color(0xFFD4E3E7), fontSize: 10.5),
                   textAlign: TextAlign.center,
                 ),
@@ -163,23 +166,10 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
 
             // Bottom Right Map Controls
             Positioned(
-              bottom: 12,
+              bottom: 60, // Shifted up to avoid overlapping the new bottom button bar
               right: 12,
               child: Column(
                 children: [
-                  // Clear Boundary Button
-                  if (locationData.boundary.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: FloatingActionButton.small(
-                        heroTag: 'clear_map_boundary',
-                        backgroundColor: const Color(0xFFD32F2F).withValues(alpha: 0.9),
-                        child: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
-                        onPressed: () {
-                          ref.read(locationProvider.notifier).clearBoundary();
-                        },
-                      ),
-                    ),
                   // Zoom In Button
                   FloatingActionButton.small(
                     heroTag: 'zoom_in_map',
@@ -199,57 +189,138 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
               ),
             ),
 
-            // Use My Location & Confirm Button Bar
+            // Dynamic Action Button Bar
             Positioned(
               bottom: 12,
               left: 12,
+              right: 12,
               child: Row(
                 children: [
-                  // Use My Location
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF39C793),
-                      foregroundColor: const Color(0xFF07372B),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      elevation: 4,
+                  if (!locationData.isDrawing) ...[
+                    // Use My Location
+                    Expanded(
+                      flex: 4,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF39C793),
+                          foregroundColor: const Color(0xFF07372B),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          elevation: 4,
+                        ),
+                        icon: locationData.isLocating
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF07372B)),
+                              )
+                            : const Icon(Icons.my_location_rounded, size: 14),
+                        label: Text(
+                          context.translate('use_my_location', currentLanguage),
+                          style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.w600),
+                        ),
+                        onPressed: locationData.isLocating ? null : _gpsLocationHandler,
+                      ),
                     ),
-                    icon: _isLocating
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF07372B)),
-                          )
-                        : const Icon(Icons.my_location_rounded, size: 16),
-                    label: Text(
-                      context.translate('use_my_location', currentLanguage),
-                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                    const SizedBox(width: 8),
+                    // Draw Boundary
+                    Expanded(
+                      flex: 5,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF3A86FF),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          elevation: 4,
+                        ),
+                        icon: const Icon(Icons.gesture_rounded, size: 14),
+                        label: Text(
+                          context.translate('start_drawing', currentLanguage),
+                          style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.w600),
+                        ),
+                        onPressed: () {
+                          ref.read(locationProvider.notifier).toggleDrawing(true);
+                        },
+                      ),
                     ),
-                    onPressed: _isLocating ? null : _gpsLocationHandler,
-                  ),
-                  const SizedBox(width: 8),
+                  ] else ...[
+                    // Undo
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE7C96E),
+                          foregroundColor: const Color(0xFF2C2405),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          elevation: 4,
+                        ),
+                        icon: const Icon(Icons.undo_rounded, size: 14),
+                        label: Text(
+                          context.translate('undo_point', currentLanguage),
+                          style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.w600),
+                        ),
+                        onPressed: locationData.boundary.isEmpty
+                            ? null
+                            : () {
+                                ref.read(locationProvider.notifier).undoLastBoundaryPoint();
+                              },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Clear
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD32F2F),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          elevation: 4,
+                        ),
+                        icon: const Icon(Icons.clear_rounded, size: 14),
+                        label: Text(
+                          context.translate('clear_boundary', currentLanguage),
+                          style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.w600),
+                        ),
+                        onPressed: () {
+                          ref.read(locationProvider.notifier).clearBoundary();
+                        },
+                      ),
+                    ),
+                  ],
                   // Confirm button
-                  if (hasChanges)
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE7C96E),
-                        foregroundColor: const Color(0xFF2C2405),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        elevation: 4,
+                  if (hasChanges && (!locationData.isDrawing || locationData.boundary.length >= 3)) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE7C96E),
+                          foregroundColor: const Color(0xFF2C2405),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          elevation: 4,
+                        ),
+                        child: Text(
+                          context.translate(
+                            locationData.isDrawing ? 'confirm_farm_area' : 'confirm_farm_location',
+                            currentLanguage,
+                          ),
+                          style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: widget.onLocationConfirmed,
                       ),
-                      child: Text(
-                        context.translate('confirm_farm_location', currentLanguage),
-                        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: widget.onLocationConfirmed,
                     ),
+                  ],
                 ],
               ),
             ),
 
             // GPS Error Notification Overlay
-            if (_gpsError != null)
+            if (locationData.gpsError != null)
               Positioned(
                 top: 70,
                 left: 12,
@@ -266,7 +337,7 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          context.translate(_gpsError!, currentLanguage),
+                          context.translate(locationData.gpsError!, currentLanguage),
                           style: GoogleFonts.poppins(color: Colors.white, fontSize: 10.5),
                         ),
                       ),
@@ -275,9 +346,7 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () {
-                          setState(() {
-                            _gpsError = null;
-                          });
+                          ref.read(locationProvider.notifier).clearGpsError();
                         },
                       )
                     ],
@@ -291,22 +360,11 @@ class _FarmMapWidgetState extends ConsumerState<FarmMapWidget> {
   }
 
   Future<void> _gpsLocationHandler() async {
-    setState(() {
-      _isLocating = true;
-      _gpsError = null;
-    });
-
     try {
       await ref.read(locationProvider.notifier).fetchDeviceLocation();
       widget.onLocationConfirmed();
-    } catch (e) {
-      setState(() {
-        _gpsError = e.toString();
-      });
-    } finally {
-      setState(() {
-        _isLocating = false;
-      });
+    } catch (_) {
+      // Error is handled in the provider and displayed in overlay
     }
   }
 }

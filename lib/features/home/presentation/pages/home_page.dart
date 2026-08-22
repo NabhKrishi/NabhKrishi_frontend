@@ -10,6 +10,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../language/providers/language_provider.dart';
 import '../../../location/presentation/widgets/farm_map_widget.dart';
 import '../../../location/providers/location_provider.dart';
+import '../../../location/models/location_model.dart';
 import '../../../irrigation/models/irrigation_models.dart';
 import '../../../irrigation/providers/irrigation_provider.dart';
 
@@ -300,10 +301,12 @@ class _Dashboard extends ConsumerWidget {
                       onLocationConfirmed: () {
                         // Confirm Farm Location: copies state from active locationProvider to confirmedLocationProvider
                         final activeLoc = ref.read(locationProvider);
-                        ref.read(confirmedLocationProvider.notifier).state = activeLoc;
+                        ref.read(confirmedLocationProvider.notifier).state = activeLoc.copyWith(isDrawing: false);
+                        ref.read(locationProvider.notifier).toggleDrawing(false);
                       },
                     ),
                     const _ManualCoordinatesInput(),
+                    const _FarmLocationDetailsCard(),
                   ],
                 ),
               ),
@@ -2227,7 +2230,8 @@ class _ManualCoordinatesInputState extends ConsumerState<_ManualCoordinatesInput
     
     // Automatically confirm/select the farm location on manual search
     final activeLoc = ref.read(locationProvider);
-    ref.read(confirmedLocationProvider.notifier).state = activeLoc;
+    ref.read(confirmedLocationProvider.notifier).state = activeLoc.copyWith(isDrawing: false);
+    ref.read(locationProvider.notifier).toggleDrawing(false);
   }
 
   @override
@@ -2333,6 +2337,231 @@ class _CoordinateField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// FARM LOCATION DETAILS CARD & SAVE SUMMARY DIALOG
+// ============================================================================
+
+class _FarmLocationDetailsCard extends ConsumerWidget {
+  const _FarmLocationDetailsCard();
+
+  void _showSummaryDialog(BuildContext context, WidgetRef ref, LocationData loc, bool isHindi) {
+    final coordinateKey = '${loc.latitude.toStringAsFixed(4)},${loc.longitude.toStringAsFixed(4)}';
+    final irrigationState = ref.read(irrigationProvider(coordinateKey));
+    
+    String advisory = isHindi ? 'सिंचाई की सिफारिश लोड हो रही है...' : 'Loading recommendation...';
+    if (irrigationState.data != null) {
+      final rec = irrigationState.data!.recommendation;
+      if (rec.irrigationMm > 0) {
+        advisory = isHindi 
+            ? '${rec.irrigationMm.toInt()} मिमी सिंचाई करें' 
+            : 'Apply ${rec.irrigationMm.toInt()} mm irrigation';
+      } else {
+        advisory = isHindi ? 'सिंचाई की आवश्यकता नहीं है' : 'No irrigation required';
+      }
+    } else if (irrigationState.errorMessage != null) {
+      advisory = isHindi ? 'कनेक्शन त्रुटि। कृपया पुनः प्रयास करें।' : 'Connection error. Please try again.';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF0C2A34),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF6CE6B6), size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      isHindi ? 'खेत सहेजा गया!' : 'Farm Saved!',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  isHindi ? 'खेत का स्थान (Farm Location)' : 'Farm Location',
+                  style: GoogleFonts.poppins(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${isHindi ? 'अक्षांश' : 'Latitude'}: ${loc.latitude.toStringAsFixed(5)}\n${isHindi ? 'देशांतर' : 'Longitude'}: ${loc.longitude.toStringAsFixed(5)}',
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isHindi ? 'खेत का क्षेत्रफल (Farm Area)' : 'Farm Area',
+                  style: GoogleFonts.poppins(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  loc.boundary.length >= 3
+                      ? '${loc.farmAreaHectares.toStringAsFixed(2)} ${isHindi ? 'हेक्टेयर' : 'hectares'}'
+                      : (isHindi ? 'बिंदु स्थान' : 'Point location'),
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isHindi ? 'सिंचाई सलाह (Irrigation Advisory)' : 'Irrigation Advisory',
+                  style: GoogleFonts.poppins(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  advisory,
+                  style: GoogleFonts.poppins(color: const Color(0xFF6CE6B6), fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      isHindi ? 'बंद करें' : 'Close',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+    final confirmedLoc = ref.watch(confirmedLocationProvider);
+    
+    final latStr = confirmedLoc.latitude.toStringAsFixed(5);
+    final lngStr = confirmedLoc.longitude.toStringAsFixed(5);
+    final area = confirmedLoc.farmAreaHectares;
+    final hasBoundary = confirmedLoc.boundary.length >= 3;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C2A34),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF6CE6B6).withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.agriculture_rounded, color: Color(0xFF6CE6B6), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                isHindi ? 'खेत का विवरण' : 'Farm Details',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isHindi ? 'अक्षांश (Lat)' : 'Latitude',
+                      style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      latStr,
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isHindi ? 'देशांतर (Lng)' : 'Longitude',
+                      style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      lngStr,
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.translate('farm_area', currentLanguage),
+                style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hasBoundary
+                    ? '${area.toStringAsFixed(2)} ${context.translate('hectares', currentLanguage)}'
+                    : (isHindi ? 'बिंदु स्थान (सीमा नहीं खींची गई)' : 'Point location (no boundary drawn)'),
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6CE6B6),
+                foregroundColor: const Color(0xFF031A22),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                elevation: 4,
+              ),
+              icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+              label: Text(
+                context.translate('save_farm', currentLanguage),
+                style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                _showSummaryDialog(context, ref, confirmedLoc, isHindi);
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

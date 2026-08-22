@@ -51,6 +51,12 @@ class AppLocalizations {
       'farm_boundary': 'Farm Boundary',
       'centroid_hint': 'Predictions are calculated at the center (centroid) of your selected area.',
       'insufficient_points': 'Please tap at least 3 points on the map to define your farm area.',
+      'start_drawing': 'Draw Farm Boundary',
+      'undo_point': 'Undo Last Point',
+      'confirm_farm_area': 'Confirm Farm Area',
+      'farm_area': 'Farm Area',
+      'hectares': 'hectares',
+      'save_farm': 'Save Farm',
     },
     'hi': {
       'use_my_location': 'मेरी लोकेशन इस्तेमाल करें',
@@ -97,6 +103,12 @@ class AppLocalizations {
       'farm_boundary': 'खेत की सीमा',
       'centroid_hint': 'अनुमान आपके चयनित क्षेत्र के केंद्र (सेंट्रॉइड) पर आधारित हैं।',
       'insufficient_points': 'कृपया अपने खेत के क्षेत्र को परिभाषित करने के लिए मानचित्र पर कम से कम 3 बिंदुओं को टैप करें।',
+      'start_drawing': 'खेत की सीमा बनाएं',
+      'undo_point': 'पूर्ववत करें',
+      'confirm_farm_area': 'खेत की पुष्टि करें',
+      'farm_area': 'खेत का क्षेत्रफल',
+      'hectares': 'हेक्टेयर',
+      'save_farm': 'खेत सहेजें',
     }
   };
 

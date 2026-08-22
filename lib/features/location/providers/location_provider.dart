@@ -10,7 +10,9 @@ class LocationNotifier extends Notifier<LocationData> {
     return LocationData(
       latitude: 30.9009,
       longitude: 75.8573,
-      boundary: [],
+      boundary: const [],
+      isDrawing: false,
+      isLocating: false,
     );
   }
 
@@ -23,56 +25,110 @@ class LocationNotifier extends Notifier<LocationData> {
 
   void addBoundaryPoint(LatLng point) {
     final updatedBoundary = List<LatLng>.from(state.boundary)..add(point);
-    state = state.copyWith(boundary: updatedBoundary);
+    double newLat = state.latitude;
+    double newLng = state.longitude;
+    if (updatedBoundary.isNotEmpty) {
+      double latSum = 0;
+      double lngSum = 0;
+      for (final pt in updatedBoundary) {
+        latSum += pt.latitude;
+        lngSum += pt.longitude;
+      }
+      newLat = latSum / updatedBoundary.length;
+      newLng = lngSum / updatedBoundary.length;
+    }
+    state = state.copyWith(
+      boundary: updatedBoundary,
+      latitude: newLat,
+      longitude: newLng,
+    );
   }
 
-  void removeLastBoundaryPoint() {
+  void undoLastBoundaryPoint() {
     if (state.boundary.isEmpty) return;
     final updatedBoundary = List<LatLng>.from(state.boundary)..removeLast();
-    state = state.copyWith(boundary: updatedBoundary);
+    double newLat = state.latitude;
+    double newLng = state.longitude;
+    if (updatedBoundary.isNotEmpty) {
+      double latSum = 0;
+      double lngSum = 0;
+      for (final pt in updatedBoundary) {
+        latSum += pt.latitude;
+        lngSum += pt.longitude;
+      }
+      newLat = latSum / updatedBoundary.length;
+      newLng = lngSum / updatedBoundary.length;
+    }
+    state = state.copyWith(
+      boundary: updatedBoundary,
+      latitude: newLat,
+      longitude: newLng,
+    );
   }
 
   void clearBoundary() {
-    state = state.copyWith(boundary: []);
+    state = state.copyWith(boundary: const []);
   }
 
   void setBoundary(List<LatLng> points) {
     state = state.copyWith(boundary: points);
   }
 
+  void toggleDrawing(bool drawing) {
+    state = state.copyWith(isDrawing: drawing);
+  }
+
+  void clearGpsError() {
+    state = state.copyWith(gpsError: null);
+  }
+
   /// Triggers device geolocation.
-  /// Throws standard user-friendly error messages on failure.
   Future<void> fetchDeviceLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw 'error_gps_unavailable';
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw 'error_gps_denied';
-      }
-    }
-    
-    if (permission == LocationPermission.deniedForever) {
-      throw 'error_gps_denied';
-    }
+    state = state.copyWith(isLocating: true, gpsError: null);
 
     try {
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        state = state.copyWith(isLocating: false, gpsError: 'error_gps_unavailable');
+        throw 'error_gps_unavailable';
+      }
+
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          state = state.copyWith(isLocating: false, gpsError: 'error_gps_denied');
+          throw 'error_gps_denied';
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        state = state.copyWith(isLocating: false, gpsError: 'error_gps_denied');
+        throw 'error_gps_denied';
+      }
+
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 10),
       );
       
-      updateCoordinate(position.latitude, position.longitude);
-      clearBoundary(); // Reset boundary when location changes to new region.
-    } catch (_) {
-      throw 'error_generic';
+      state = state.copyWith(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        boundary: const [],
+        isLocating: false,
+        gpsError: null,
+      );
+    } catch (e) {
+      String err = 'error_generic';
+      if (e == 'error_gps_unavailable' || e == 'error_gps_denied') {
+        err = e.toString();
+      }
+      state = state.copyWith(isLocating: false, gpsError: err);
+      rethrow;
     }
   }
 }
@@ -85,6 +141,8 @@ final confirmedLocationProvider = StateProvider<LocationData>((ref) {
   return LocationData(
     latitude: 30.9009,
     longitude: 75.8573,
-    boundary: [],
+    boundary: const [],
+    isDrawing: false,
+    isLocating: false,
   );
 });
