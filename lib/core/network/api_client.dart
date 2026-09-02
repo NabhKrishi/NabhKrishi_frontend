@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 /// Custom network exceptions to handle backend failures cleanly.
@@ -24,19 +26,41 @@ class ApiClient {
     final url = Uri.parse('$baseUrl$endpoint');
     final headers = {'Content-Type': 'application/json'};
     final encodedBody = jsonEncode(body);
+    final stopwatch = Stopwatch()..start();
 
-    developer.log('API POST Request to $url with body: $encodedBody');
+    // === IRRIGATION API REQUEST ===
+    developer.log('''
+=== IRRIGATION API REQUEST ===
+URL: $url
+Method: POST
+Latitude: ${body['latitude']}
+Longitude: ${body['longitude']}
+Request body: $encodedBody
+''');
 
     try {
-      // 60-second timeout to handle Render cold-start behavior.
+      // 120-second timeout to handle Render cold-start behavior.
       final response = await _client
           .post(url, headers: headers, body: encodedBody)
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 120));
 
-      developer.log('API POST Response from $url: ${response.statusCode} - ${response.body}');
+      stopwatch.stop();
+
+      // === IRRIGATION API RESPONSE ===
+      developer.log('''
+=== IRRIGATION API RESPONSE ===
+Status code: ${response.statusCode}
+Response time: ${stopwatch.elapsedMilliseconds}ms
+Response body: ${response.body}
+''');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        try {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        } on FormatException catch (e, stackTrace) {
+          _logError(e, stackTrace);
+          throw NetworkException('JSON parsing error. Invalid response structure from server.');
+        }
       } else {
         String errMsg = 'Request failed with status: ${response.statusCode}';
         try {
@@ -47,19 +71,42 @@ class ApiClient {
         } catch (_) {}
         throw NetworkException(errMsg, statusCode: response.statusCode);
       }
-    } on http.ClientException catch (e) {
-      developer.log('HTTP ClientException: $e');
+    } on NetworkException {
+      // Rethrow to avoid wrapping it in the catch-all block below
+      rethrow;
+    } on http.ClientException catch (e, stackTrace) {
+      stopwatch.stop();
+      _logError(e, stackTrace);
       throw NetworkException('Network connection failed. Please check your internet connection.');
-    } on StateError catch (e) {
-      developer.log('StateError: $e');
+    } on SocketException catch (e, stackTrace) {
+      stopwatch.stop();
+      _logError(e, stackTrace);
+      throw NetworkException('No internet connection or server unreachable. Please check your network settings.');
+    } on TimeoutException catch (e, stackTrace) {
+      stopwatch.stop();
+      _logError(e, stackTrace);
+      throw NetworkException('Server took too long to respond. The system services may be warming up. Please try again.');
+    } on StateError catch (e, stackTrace) {
+      stopwatch.stop();
+      _logError(e, stackTrace);
       throw NetworkException('Unable to reach the server.');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      stopwatch.stop();
+      _logError(e, stackTrace);
       if (e.toString().contains('TimeoutException')) {
         throw NetworkException('Server took too long to respond. The system services may be warming up. Please try again.');
       }
-      developer.log('Unexpected network error: $e');
       throw NetworkException('An unexpected network error occurred.');
     }
+  }
+
+  void _logError(dynamic e, StackTrace stackTrace) {
+    developer.log('''
+=== IRRIGATION API ERROR ===
+Exception type: ${e.runtimeType}
+Error: $e
+Stack trace: $stackTrace
+''');
   }
 
   /// Helper to perform GET requests (like health checks).

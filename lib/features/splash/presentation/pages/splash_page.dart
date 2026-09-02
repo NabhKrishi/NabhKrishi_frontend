@@ -1,18 +1,20 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../auth/presentation/pages/language_selection_page.dart';
+import '../../../auth/providers/auth_provider.dart';
 
-class SplashPage extends StatefulWidget {
+class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
 
   @override
-  State<SplashPage> createState() => _SplashPageState();
+  ConsumerState<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage>
+class _SplashPageState extends ConsumerState<SplashPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -33,27 +35,7 @@ class _SplashPageState extends State<SplashPage>
   }
 
   void _goToLanguage() {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 850),
-        reverseTransitionDuration: const Duration(milliseconds: 450),
-        pageBuilder: (_, animation, __) => const LanguageSelectionPage(),
-        transitionsBuilder: (_, animation, __, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOutCubic,
-          );
-
-          return FadeTransition(
-            opacity: curved,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+    ref.read(isSplashFinishedProvider.notifier).state = true;
   }
 
   double _interval(

@@ -13,6 +13,11 @@ import '../../../location/providers/location_provider.dart';
 import '../../../location/models/location_model.dart';
 import '../../../irrigation/models/irrigation_models.dart';
 import '../../../irrigation/providers/irrigation_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../models/farm_model.dart';
+import '../../../../services/firestore_service.dart';
+import '../../../../screens/nabhkrishi_chatbot_screen.dart';
+import 'analytics_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   final String language;
@@ -108,14 +113,7 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
                   entranceController: _entranceController,
                   ringController: _ringController,
                 ),
-                _SimplePage(
-                  isHindi: isHindi,
-                  icon: Icons.insights_rounded,
-                  title: isHindi ? 'आपकी खेती' : 'Your insights',
-                  subtitle: isHindi
-                      ? 'आपके खेत की कहानी यहाँ दिखेगी।'
-                      : 'The story of your farm will live here.',
-                ),
+                AnalyticsPage(isHindi: isHindi),
                 _SimplePage(
                   isHindi: isHindi,
                   icon: Icons.agriculture_rounded,
@@ -346,6 +344,14 @@ class _Dashboard extends ConsumerWidget {
                 controller: entranceController,
                 start: 0.48,
                 child: _NabhMessage(),
+              ),
+
+              const SizedBox(height: 20),
+
+              _Reveal(
+                controller: entranceController,
+                start: 0.52,
+                child: const _FeedbackCard(),
               ),
 
               const SizedBox(height: 20),
@@ -628,137 +634,181 @@ class _FarmHero extends ConsumerWidget {
           child: Transform.rotate(angle: tilt, child: child),
         );
       },
-      child: Container(
-        height: 235,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(32),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0A4A43), Color(0xFF0A3940), Color(0xFF082633)],
-          ),
-          border: Border.all(color: const Color(0xFF83F0C8).withValues(alpha: 0.13)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF39D49C).withValues(alpha: 0.09),
-              blurRadius: 40,
-              spreadRadius: 2,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final isSmall = width < 365;
+          final paddingVal = isSmall ? 14.0 : 22.0;
+          final ringWidth = isSmall ? 100.0 : 130.0;
+          final ringHeight = isSmall ? 120.0 : 150.0;
+          final ringSize = isSmall ? 100.0 : 130.0;
+          final spacing = isSmall ? 8.0 : 12.0;
+
+          final titleFontSize = isSmall ? 8.5 : 9.5;
+          final valueFontSize = isSmall ? 15.0 : 18.0;
+          final descFontSize = isSmall ? 9.0 : 10.0;
+          final statusFontSize = isSmall ? 7.5 : 8.5;
+
+          final ringAmountFontSize = isSmall ? 32.0 : 41.0;
+          final ringUnitFontSize = isSmall ? 8.0 : 9.0;
+
+          final topSpacer = isSmall ? 4.0 : 8.0;
+          final midSpacer = isSmall ? 5.0 : 9.0;
+          final bottomSpacer = isSmall ? 8.0 : 14.0;
+
+          return Container(
+            height: 235,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF0A4A43), Color(0xFF0A3940), Color(0xFF082633)],
+              ),
+              border: Border.all(color: const Color(0xFF83F0C8).withValues(alpha: 0.13)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF39D49C).withValues(alpha: 0.09),
+                  blurRadius: 40,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -35,
-              top: -50,
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF82EEC7).withValues(alpha: 0.06),
-                    width: 20,
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -35,
+                  top: -50,
+                  child: Container(
+                    width: 180,
+                    height: 180,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF82EEC7).withValues(alpha: 0.06),
+                        width: 20,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              right: 15,
-              bottom: -12,
-              child: Icon(
-                Icons.water_drop_rounded,
-                size: 115,
-                color: const Color(0xFF8EF1CA).withValues(alpha: 0.045),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(22),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 140,
-                    height: 180,
-                    child: AnimatedBuilder(
-                      animation: ringController,
-                      builder: (context, _) {
-                        // Action-based progress representation (0.0 to 1.0 based on max 25mm action)
-                        final rawProgress = recommendation.irrigationMm / 25.0;
-                        final progress = Curves.easeOutCubic.transform(ringController.value) * rawProgress;
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CustomPaint(size: const Size(140, 140), painter: _RingPainter(progress: progress)),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
+                Positioned(
+                  right: 15,
+                  bottom: -12,
+                  child: Icon(
+                    Icons.water_drop_rounded,
+                    size: 115,
+                    color: const Color(0xFF8EF1CA).withValues(alpha: 0.045),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(paddingVal),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: ringWidth,
+                        height: ringHeight,
+                        child: AnimatedBuilder(
+                          animation: ringController,
+                          builder: (context, _) {
+                            // Action-based progress representation (0.0 to 1.0 based on max 25mm action)
+                            final rawProgress = recommendation.irrigationMm / 25.0;
+                            final progress = Curves.easeOutCubic.transform(ringController.value) * rawProgress;
+                            return Stack(
+                              alignment: Alignment.center,
                               children: [
-                                Text(
-                                  '${recommendation.irrigationMm.toInt()}',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 41,
-                                    height: 1,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                CustomPaint(
+                                  size: Size(ringSize, ringSize),
+                                  painter: _RingPainter(progress: progress),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'MM',
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF78EAC0),
-                                    fontSize: 9,
-                                    letterSpacing: 1.4,
-                                    fontWeight: FontWeight.w600,
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${recommendation.irrigationMm.toInt()}',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontSize: ringAmountFontSize,
+                                        height: 1,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'MM',
+                                      style: GoogleFonts.poppins(
+                                        color: const Color(0xFF78EAC0),
+                                        fontSize: ringUnitFontSize,
+                                        letterSpacing: 1.4,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(width: spacing),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              context.translate('irrigation_recommendation', currentLanguage).toUpperCase(),
+                              style: GoogleFonts.poppins(
+                                color: Colors.white38,
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            SizedBox(height: topSpacer),
+                            Text(
+                              recommendation.irrigationMm > 0
+                                  ? context.translate('apply_irrigation', currentLanguage, arguments: {'amount': '${recommendation.irrigationMm.toInt()}'})
+                                  : context.translate('no_irrigation', currentLanguage),
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: valueFontSize,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                              ),
+                            ),
+                            SizedBox(height: midSpacer),
+                            Text(
+                              isHindi
+                                  ? 'मौसम और उपग्रह आंकड़ों के आधार पर सुरक्षित निर्णय।'
+                                  : 'Recommended amount calculated directly from active weather and Sentinel-1 radar readings.',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white54,
+                                fontSize: descFontSize,
+                                height: 1.4,
+                              ),
+                            ),
+                            SizedBox(height: bottomSpacer),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _MiniStatus(
+                                    icon: Icons.check_circle_outline_rounded,
+                                    label: isHindi ? 'डीक्यूएन मॉडल सत्यापित' : 'DQN model verified',
+                                    fontSize: statusFontSize,
                                   ),
                                 ),
                               ],
                             ),
                           ],
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          context.translate('irrigation_recommendation', currentLanguage).toUpperCase(),
-                          style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          recommendation.irrigationMm > 0
-                              ? context.translate('apply_irrigation', currentLanguage, arguments: {'amount': '${recommendation.irrigationMm.toInt()}'})
-                              : context.translate('no_irrigation', currentLanguage),
-                          style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, height: 1.2),
-                        ),
-                        const SizedBox(height: 9),
-                        Text(
-                          isHindi
-                              ? 'मौसम और उपग्रह आंकड़ों के आधार पर सुरक्षित निर्णय।'
-                              : 'Recommended amount calculated directly from active weather and Sentinel-1 radar readings.',
-                          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 10, height: 1.4),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            _MiniStatus(
-                              icon: Icons.check_circle_outline_rounded,
-                              label: isHindi ? 'डीक्यूएन मॉडल सत्यापित' : 'DQN model verified',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -767,8 +817,9 @@ class _FarmHero extends ConsumerWidget {
 class _MiniStatus extends StatelessWidget {
   final IconData icon;
   final String label;
+  final double fontSize;
 
-  const _MiniStatus({required this.icon, required this.label});
+  const _MiniStatus({required this.icon, required this.label, this.fontSize = 8.5});
 
   @override
   Widget build(BuildContext context) {
@@ -776,7 +827,13 @@ class _MiniStatus extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: const Color(0xFF75E8BC)),
         const SizedBox(width: 4),
-        Text(label, style: GoogleFonts.poppins(color: Colors.white54, fontSize: 8.5)),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(color: Colors.white54, fontSize: fontSize),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -855,20 +912,26 @@ class _WeatherCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _WeatherMetricItem(
-                label: context.translate('rainfall_7d', currentLanguage),
-                value: '${weather.rain7d.toStringAsFixed(1)} mm',
-                icon: Icons.grain_rounded,
+              Expanded(
+                child: _WeatherMetricItem(
+                  label: context.translate('rainfall_7d', currentLanguage),
+                  value: '${weather.rain7d.toStringAsFixed(1)} mm',
+                  icon: Icons.grain_rounded,
+                ),
               ),
-              _WeatherMetricItem(
-                label: context.translate('rainfall_14d', currentLanguage),
-                value: '${weather.rain14d.toStringAsFixed(1)} mm',
-                icon: Icons.umbrella_rounded,
+              Expanded(
+                child: _WeatherMetricItem(
+                  label: context.translate('rainfall_14d', currentLanguage),
+                  value: '${weather.rain14d.toStringAsFixed(1)} mm',
+                  icon: Icons.umbrella_rounded,
+                ),
               ),
-              _WeatherMetricItem(
-                label: context.translate('et0_7d', currentLanguage),
-                value: '${weather.et07d.toStringAsFixed(1)} mm',
-                icon: Icons.air_rounded,
+              Expanded(
+                child: _WeatherMetricItem(
+                  label: context.translate('et0_7d', currentLanguage),
+                  value: '${weather.et07d.toStringAsFixed(1)} mm',
+                  icon: Icons.air_rounded,
+                ),
               ),
             ],
           ),
@@ -1406,7 +1469,13 @@ class _HumanActions extends ConsumerWidget {
           subtitle: isHindi ? 'कुछ भी पूछें, आवाज़ में भी' : 'Anything, even by voice',
           accent: const Color(0xFF8DC7FF),
           wide: true,
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => NabhKrishiChatbotScreen(isHindi: isHindi),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 11),
         Row(
@@ -1478,7 +1547,10 @@ class _ActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final card = Container(
       height: height,
-      padding: EdgeInsets.symmetric(horizontal: wide ? 18 : 14, vertical: wide ? 14 : 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: wide ? 18 : 14,
+        vertical: wide ? 14 : (height < 70 ? 8 : 14),
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.042),
         borderRadius: wide
@@ -1728,8 +1800,11 @@ class _BottomBar extends StatelessWidget {
       Icons.person_outline_rounded,
     ];
 
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final paddingBottom = bottomPadding > 0 ? bottomPadding : 14.0;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: EdgeInsets.fromLTRB(14, 0, 14, paddingBottom),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
         child: BackdropFilter(
@@ -2555,13 +2630,356 @@ class _FarmLocationDetailsCard extends ConsumerWidget {
                 context.translate('save_farm', currentLanguage),
                 style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
               ),
-              onPressed: () {
-                _showSummaryDialog(context, ref, confirmedLoc, isHindi);
+              onPressed: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF0C2A34),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      title: Text(
+                        isHindi ? 'साइन इन आवश्यक' : 'Sign In Required',
+                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      content: Text(
+                        isHindi ? 'खेत सहेजने से पहले कृपया साइन इन करें।' : 'Please sign in before saving your farm.',
+                        style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            isHindi ? 'बंद करें' : 'Close',
+                            style: GoogleFonts.poppins(color: const Color(0xFF6CE6B6), fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6CE6B6)),
+                    ),
+                  ),
+                );
+
+                try {
+                  final firestoreService = ref.read(firestoreServiceProvider);
+                  final farm = FarmModel(
+                    farmId: '',
+                    userId: user.uid,
+                    latitude: confirmedLoc.latitude,
+                    longitude: confirmedLoc.longitude,
+                    farmArea: confirmedLoc.boundary.length >= 3 ? confirmedLoc.farmAreaHectares : null,
+                    areaUnit: confirmedLoc.boundary.length >= 3 ? 'hectares' : null,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  );
+                  
+                  await firestoreService.saveFarm(user.uid, farm);
+                  
+                  // Pop loading indicator
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    // Show success summary dialog
+                    _showSummaryDialog(context, ref, confirmedLoc, isHindi);
+                  }
+                } catch (e) {
+                  // Pop loading indicator
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    // Show error dialog
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: const Color(0xFF0C2A34),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: Text(
+                          isHindi ? 'सहेजने में असमर्थ' : 'Error Saving Farm',
+                          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        content: Text(
+                          isHindi ? 'खेत सहेजने में विफल: $e' : 'Failed to save farm: $e',
+                          style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(
+                              isHindi ? 'बंद करें' : 'Close',
+                              style: GoogleFonts.poppins(color: const Color(0xFF6CE6B6), fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                }
               },
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+// ============================================================================
+// FARMER FEEDBACK CARD & DIALOG
+// ============================================================================
+
+class _FeedbackCard extends ConsumerWidget {
+  const _FeedbackCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final isHindi = currentLanguage == 'Hindi';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C2A34),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.rate_review_rounded, color: Color(0xFF6CE6B6), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isHindi ? 'नभकृषि को बेहतर बनाने में मदद करें' : 'Help us improve NabhKrishi',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isHindi 
+                ? 'हमारी सिंचाई सिफारिशें आपके लिए कितनी उपयोगी हैं?' 
+                : 'How useful are our irrigation recommendations?',
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6CE6B6),
+                foregroundColor: const Color(0xFF031A22),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => _FeedbackDialog(isHindi: isHindi),
+                );
+              },
+              child: Text(
+                isHindi ? 'प्रतिक्रिया दें' : 'Give Feedback',
+                style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedbackDialog extends ConsumerStatefulWidget {
+  final bool isHindi;
+  const _FeedbackDialog({required this.isHindi});
+
+  @override
+  ConsumerState<_FeedbackDialog> createState() => _FeedbackDialogState();
+}
+
+class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
+  int _rating = 5;
+  final TextEditingController _feedbackController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0C2A34),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(
+        widget.isHindi ? 'प्रतिक्रिया फॉर्म' : 'Farmer Feedback',
+        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.isHindi ? 'नभकृषि रेटिंग:' : 'Rate NabhKrishi:',
+              style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) {
+                final starIndex = index + 1;
+                final filled = starIndex <= _rating;
+                return IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: filled ? const Color(0xFFFFB300) : Colors.white24,
+                      size: 30,
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _rating = starIndex;
+                    });
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.isHindi ? 'टिप्पणियां (वैकल्पिक):' : 'Comments (optional):',
+              style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: TextField(
+                controller: _feedbackController,
+                maxLines: 3,
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: widget.isHindi ? 'अपनी प्रतिक्रिया यहाँ लिखें...' : 'Write comments here...',
+                  hintStyle: GoogleFonts.poppins(color: Colors.white24, fontSize: 13),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: Text(
+            widget.isHindi ? 'रद्द करें' : 'Cancel',
+            style: GoogleFonts.poppins(color: Colors.white30, fontWeight: FontWeight.bold),
+          ),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6CE6B6),
+            foregroundColor: const Color(0xFF031A22),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          onPressed: _submitting ? null : _submitFeedback,
+          child: _submitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF031A22)),
+                )
+              : Text(
+                  widget.isHindi ? 'जमा करें' : 'Submit',
+                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitFeedback() async {
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception(widget.isHindi ? 'कोई उपयोगकर्ता साइन इन नहीं है।' : 'No user is signed in.');
+      }
+
+      await ref.read(firestoreServiceProvider).saveFeedback(
+            userId: user.uid,
+            rating: _rating,
+            feedback: _feedbackController.text,
+          );
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.isHindi ? 'प्रतिक्रिया सफलतापूर्वक सहेजी गई!' : 'Feedback submitted successfully!',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: const Color(0xFF0C2A34),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _submitting = false;
+      });
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF0C2A34),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              widget.isHindi ? 'प्रस्तुत करने में विफल' : 'Submission Failed',
+              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            content: Text(
+              widget.isHindi ? 'प्रतिक्रिया भेजने में विफल: $e' : 'Failed to submit feedback: $e',
+              style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  widget.isHindi ? 'बंद करें' : 'Close',
+                  style: GoogleFonts.poppins(color: const Color(0xFF6CE6B6), fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 }

@@ -43,3 +43,18 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# AI / Python
+.venv/
+__pycache__/
+*.pyc
+
+# Environment variables / API keys
+.env
+.env.*
+**/.env
+
+# AI local database
+**/chroma_db/
+
+# Local AI data
+**/data/

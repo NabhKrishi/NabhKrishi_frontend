@@ -1,99 +1,162 @@
 import 'dart:ui';
-import '../../../home/presentation/pages/home_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/localization/app_localizations.dart';
+import '../../providers/auth_provider.dart';
 
-class LoginPage extends StatefulWidget {
+enum AuthMode { signIn, signUp, forgotPassword }
+
+class LoginPage extends ConsumerStatefulWidget {
   final String language;
 
   const LoginPage({super.key, required this.language});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _otpController = TextEditingController();
+class _LoginPageState extends ConsumerState<LoginPage> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
-  bool _showOtp = false;
+  AuthMode _mode = AuthMode.signIn;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _loading = false;
-  String? _error;
+  String? _localError;
 
   bool get isHindi => widget.language == 'Hindi';
 
-  String get title =>
-      isHindi ? 'नाभकृषि में आपका स्वागत है' : 'Welcome to NabhKrishi';
+  String get title {
+    if (_mode == AuthMode.signIn) {
+      return isHindi ? 'नाभकृषि में आपका स्वागत है' : 'Welcome to NabhKrishi';
+    } else if (_mode == AuthMode.signUp) {
+      return isHindi ? 'साइन अप करें' : 'Create Account';
+    } else {
+      return isHindi ? 'पासवर्ड रीसेट करें' : 'Reset Password';
+    }
+  }
 
-  String get subtitle => isHindi
-      ? 'आपकी खेती, हमारे साथ और स्मार्ट।'
-      : 'Your farm. Your future. Smarter.';
+  String get subtitle {
+    if (_mode == AuthMode.signIn) {
+      return isHindi ? 'आपकी खेती, हमारे साथ और स्मार्ट।' : 'Your farm. Your future. Smarter.';
+    } else if (_mode == AuthMode.signUp) {
+      return isHindi ? 'नाभकृषि परिवार का हिस्सा बनने के लिए फॉर्म भरें।' : 'Fill the details to join NabhKrishi.';
+    } else {
+      return isHindi ? 'अपने पंजीकृत ईमेल पर रीसेट लिंक भेजने के लिए ईमेल दर्ज करें।' : 'Enter your email to receive a password reset link.';
+    }
+  }
 
   @override
   void dispose() {
-    _phoneController.dispose();
-    _otpController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _continue() {
-    FocusScope.of(context).unfocus();
-
-    final phone = _phoneController.text.trim();
-
-    if (phone.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(phone)) {
-      setState(() {
-        _error = isHindi
-            ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें।'
-            : 'Please enter a valid 10-digit mobile number.';
-      });
-      return;
-    }
-
+  void _switchMode(AuthMode newMode) {
     setState(() {
-      _error = null;
-      _loading = true;
+      _mode = newMode;
+      _localError = null;
+      _nameController.clear();
+      _emailController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
     });
-
-    Future.delayed(const Duration(milliseconds: 650), () {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _showOtp = true;
-      });
-    });
+    ref.read(authNotifierProvider.notifier).reset();
   }
 
-  void _verifyOtp() {
-    FocusScope.of(context).unfocus();
+  bool _validateFields() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirm = _confirmPasswordController.text;
+    final name = _nameController.text.trim();
 
-    final otp = _otpController.text.trim();
-
-    if (otp.length != 6 || !RegExp(r'^[0-9]+$').hasMatch(otp)) {
+    // Email check
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       setState(() {
-        _error = isHindi
-            ? 'कृपया 6 अंकों का OTP दर्ज करें।'
-            : 'Please enter the 6-digit OTP.';
+        _localError = 'error_invalid_email';
       });
-      return;
+      return false;
+    }
+
+    if (_mode == AuthMode.signUp) {
+      // Name check
+      if (name.isEmpty) {
+        setState(() {
+          _localError = isHindi ? 'कृपया अपना पूरा नाम दर्ज करें।' : 'Please enter your full name.';
+        });
+        return false;
+      }
+    }
+
+    if (_mode != AuthMode.forgotPassword) {
+      // Password check
+      if (password.isEmpty || password.length < 6) {
+        setState(() {
+          _localError = 'error_weak_password';
+        });
+        return false;
+      }
+    }
+
+    if (_mode == AuthMode.signUp) {
+      // Password match check
+      if (password != confirm) {
+        setState(() {
+          _localError = 'error_passwords_mismatch';
+        });
+        return false;
+      }
     }
 
     setState(() {
-      _error = null;
-      _loading = true;
+      _localError = null;
     });
+    return true;
+  }
 
-    Future.delayed(const Duration(milliseconds: 750), () {
-      if (!mounted) return;
+  void _submit() {
+    FocusScope.of(context).unfocus();
+    if (!_validateFields()) return;
 
-      setState(() {
-        _loading = false;
-      });
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final name = _nameController.text.trim();
 
-      _showSuccess();
-    });
+    if (_mode == AuthMode.signIn) {
+      ref.read(authNotifierProvider.notifier).loginWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+    } else if (_mode == AuthMode.signUp) {
+      ref.read(authNotifierProvider.notifier).signUpWithEmailAndPassword(
+            email: email,
+            password: password,
+            name: name,
+          );
+    } else if (_mode == AuthMode.forgotPassword) {
+      ref.read(authNotifierProvider.notifier).resetPassword(email: email);
+    }
+  }
+
+  void _googleLogin() {
+    FocusScope.of(context).unfocus();
+    ref.read(authNotifierProvider.notifier).loginWithGoogle();
+  }
+
+  String? _getLocalizedError(String? errorKey) {
+    if (errorKey == null) return null;
+    if (errorKey.startsWith('error_')) {
+      return context.translate(errorKey, widget.language);
+    }
+    return errorKey;
   }
 
   void _showSuccess() {
@@ -129,14 +192,10 @@ class _LoginPageState extends State<LoginPage> {
                           height: 72,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(
-                              0xFF5DE2B0,
-                            ).withValues(alpha: 0.14),
+                            color: const Color(0xFF5DE2B0).withValues(alpha: 0.14),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFF5DE2B0,
-                                ).withValues(alpha: 0.22),
+                                color: const Color(0xFF5DE2B0).withValues(alpha: 0.22),
                                 blurRadius: 30,
                               ),
                             ],
@@ -150,9 +209,7 @@ class _LoginPageState extends State<LoginPage> {
                           duration: 500.ms,
                           curve: Curves.easeOutBack,
                         ),
-
                         const SizedBox(height: 22),
-
                         Text(
                           isHindi ? 'सत्यापन सफल!' : 'Verification successful!',
                           textAlign: TextAlign.center,
@@ -162,57 +219,22 @@ class _LoginPageState extends State<LoginPage> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-
                         const SizedBox(height: 10),
-
                         Text(
-                          isHindi
-                              ? 'लॉगिन पूरा हो गया है।'
-                              : 'Your login is complete.',
+                          isHindi ? 'लॉगिन पूरा हो गया है।' : 'Your login is complete.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             color: Colors.white70,
                             fontSize: 14,
                           ),
                         ),
-
                         const SizedBox(height: 26),
-
                         SizedBox(
                           width: double.infinity,
                           height: 52,
                           child: FilledButton(
                             onPressed: () {
                               Navigator.pop(context);
-
-                              Navigator.of(context).pushReplacement(
-                                PageRouteBuilder(
-                                  transitionDuration: const Duration(
-                                    milliseconds: 650,
-                                  ),
-                                  pageBuilder: (_, animation, __) {
-                                    return HomePage(language: widget.language);
-                                  },
-                                  transitionsBuilder:
-                                      (_, animation, __, child) {
-                                        final curved = CurvedAnimation(
-                                          parent: animation,
-                                          curve: Curves.easeOutCubic,
-                                        );
-
-                                        return FadeTransition(
-                                          opacity: curved,
-                                          child: SlideTransition(
-                                            position: Tween<Offset>(
-                                              begin: const Offset(0, 0.025),
-                                              end: Offset.zero,
-                                            ).animate(curved),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                ),
-                              );
                             },
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF6AE8BE),
@@ -222,7 +244,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             child: Text(
-                              isHindi ? 'आगे बढ़ें' : 'Continue',
+                              context.translate('confirm_farm_area', widget.language), // Fallback text
                               style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w700,
                               ),
@@ -252,31 +274,28 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _googleLogin() {
-    setState(() {
-      _error = null;
-      _loading = true;
-    });
-
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-      });
-
-      _showSuccess();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      setState(() {
+        _loading = next.isLoading;
+      });
+
+      if (next.isSuccess && !(previous?.isSuccess ?? false)) {
+        _showSuccess();
+      }
+    });
+
+    final authState = ref.watch(authNotifierProvider);
+    final currentLoading = _loading || authState.isLoading;
+    final rawError = _localError ?? authState.errorMessage;
+    final resolvedError = _getLocalizedError(rawError);
+
     return Scaffold(
       backgroundColor: const Color(0xFF04172F),
       body: Stack(
         children: [
           const _LoginBackground(),
-
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -284,10 +303,14 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _BackButton(onPressed: () => Navigator.pop(context)),
-
-                  const SizedBox(height: 34),
-
+                  _BackButton(onPressed: () {
+                    if (_mode != AuthMode.signIn) {
+                      _switchMode(AuthMode.signIn);
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  }),
+                  const SizedBox(height: 24),
                   Center(
                     child: const _MiniLeaf()
                         .animate()
@@ -299,82 +322,185 @@ class _LoginPageState extends State<LoginPage> {
                           curve: Curves.easeOutBack,
                         ),
                   ),
-
-                  const SizedBox(height: 28),
-
+                  const SizedBox(height: 24),
                   Text(
-                        title,
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 29,
-                          height: 1.15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                      .animate()
-                      .fadeIn(delay: 100.ms, duration: 500.ms)
-                      .moveY(
-                        begin: 18,
-                        end: 0,
-                        duration: 500.ms,
-                        curve: Curves.easeOutCubic,
-                      ),
-
-                  const SizedBox(height: 10),
-
+                    title,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 27,
+                      height: 1.15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ).animate().fadeIn(duration: 500.ms),
+                  const SizedBox(height: 8),
                   Text(
                     subtitle,
                     style: GoogleFonts.poppins(
                       color: Colors.white.withValues(alpha: 0.62),
-                      fontSize: 15,
-                      height: 1.5,
+                      fontSize: 14,
+                      height: 1.4,
                     ),
-                  ).animate().fadeIn(delay: 180.ms, duration: 500.ms),
-
-                  const SizedBox(height: 42),
-
+                  ).animate().fadeIn(duration: 500.ms),
+                  const SizedBox(height: 32),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
+                    duration: const Duration(milliseconds: 350),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0.04, 0),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: _showOtp
-                        ? _OtpSection(
-                            key: const ValueKey('otp'),
-                            controller: _otpController,
-                            phone: _phoneController.text,
-                            isHindi: isHindi,
-                            loading: _loading,
-                            error: _error,
-                            onVerify: _verifyOtp,
-                            onBack: () {
-                              setState(() {
-                                _showOtp = false;
-                                _error = null;
-                                _otpController.clear();
-                              });
-                            },
-                          )
-                        : _PhoneSection(
-                            key: const ValueKey('phone'),
-                            controller: _phoneController,
-                            isHindi: isHindi,
-                            loading: _loading,
-                            error: _error,
-                            onContinue: _continue,
-                            onGoogle: _googleLogin,
+                    child: Column(
+                      key: ValueKey(_mode),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_mode == AuthMode.signUp) ...[
+                          _GlassTextField(
+                            controller: _nameController,
+                            prefixIcon: const Icon(Icons.person_outline_rounded, color: Colors.white70, size: 20),
+                            hint: context.translate('name_label', widget.language),
+                            keyboardType: TextInputType.name,
                           ),
+                          const SizedBox(height: 16),
+                        ],
+                        _GlassTextField(
+                          controller: _emailController,
+                          prefixIcon: const Icon(Icons.email_outlined, color: Colors.white70, size: 20),
+                          hint: context.translate('email_label', widget.language),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        if (_mode != AuthMode.forgotPassword) ...[
+                          const SizedBox(height: 16),
+                          _GlassTextField(
+                            controller: _passwordController,
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 20),
+                            hint: context.translate('password_label', widget.language),
+                            obscureText: _obscurePassword,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                color: Colors.white38,
+                                size: 18,
+                              ),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                          ),
+                        ],
+                        if (_mode == AuthMode.signUp) ...[
+                          const SizedBox(height: 16),
+                          _GlassTextField(
+                            controller: _confirmPasswordController,
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 20),
+                            hint: context.translate('confirm_password_label', widget.language),
+                            obscureText: _obscureConfirmPassword,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                color: Colors.white38,
+                                size: 18,
+                              ),
+                              onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                            ),
+                          ),
+                        ],
+                        if (_mode == AuthMode.signIn) ...[
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => _switchMode(AuthMode.forgotPassword),
+                              child: Text(
+                                context.translate('forgot_password', widget.language),
+                                style: GoogleFonts.poppins(
+                                  color: const Color(0xFF6AE8BE),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 18),
+                        ],
+                        if (resolvedError != null) ...[
+                          Text(
+                            resolvedError,
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFFFFA7A7),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (_mode == AuthMode.forgotPassword && authState.isResetEmailSent) ...[
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF39C793).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFF39C793).withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              isHindi
+                                  ? 'पासवर्ड रीसेट लिंक आपके ईमेल पर भेज दिया गया है।'
+                                  : 'Password reset link has been sent to your email.',
+                              style: GoogleFonts.poppins(color: const Color(0xFF6CE6B6), fontSize: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        _GlowButton(
+                          text: _mode == AuthMode.signIn
+                              ? context.translate('sign_in', widget.language)
+                              : (_mode == AuthMode.signUp
+                                  ? context.translate('create_account', widget.language)
+                                  : (isHindi ? 'पासवर्ड रीसेट करें' : 'Reset Password')),
+                          loading: currentLoading,
+                          onPressed: _submit,
+                        ),
+                        if (_mode == AuthMode.signIn) ...[
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.12))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                child: Text(
+                                  isHindi ? 'या' : 'OR',
+                                  style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                              Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.12))),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          _GoogleButton(isHindi: isHindi, loading: currentLoading, onPressed: _googleLogin),
+                        ],
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _mode == AuthMode.signIn
+                                  ? context.translate('dont_have_account', widget.language)
+                                  : context.translate('already_have_account', widget.language),
+                              style: GoogleFonts.poppins(color: Colors.white38, fontSize: 12.5),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _switchMode(_mode == AuthMode.signIn ? AuthMode.signUp : AuthMode.signIn);
+                              },
+                              child: Text(
+                                _mode == AuthMode.signIn
+                                    ? context.translate('create_account', widget.language)
+                                    : context.translate('sign_in', widget.language),
+                                style: GoogleFonts.poppins(
+                                  color: const Color(0xFF6AE8BE),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -387,236 +513,31 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 // -----------------------------------------------------------------------------
-// PHONE SECTION
+// TEXT FIELD COMPONENT
 // -----------------------------------------------------------------------------
 
-class _PhoneSection extends StatelessWidget {
+class _GlassTextField extends StatefulWidget {
   final TextEditingController controller;
-  final bool isHindi;
-  final bool loading;
-  final String? error;
-  final VoidCallback onContinue;
-  final VoidCallback onGoogle;
-
-  const _PhoneSection({
-    super.key,
-    required this.controller,
-    required this.isHindi,
-    required this.loading,
-    required this.error,
-    required this.onContinue,
-    required this.onGoogle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _GlassField(
-          controller: controller,
-          prefix: '+91',
-          hint: isHindi ? 'मोबाइल नंबर' : 'Mobile number',
-          keyboardType: TextInputType.phone,
-          error: error,
-        ),
-
-        if (error != null) ...[
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              error!,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFFFFA7A7),
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 20),
-
-        _GlowButton(
-          text: isHindi ? 'जारी रखें' : 'Continue',
-          loading: loading,
-          onPressed: onContinue,
-        ),
-
-        const SizedBox(height: 26),
-
-        Row(
-          children: [
-            Expanded(
-              child: Divider(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Text(
-                isHindi ? 'या' : 'OR',
-                style: GoogleFonts.poppins(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Divider(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        _GoogleButton(isHindi: isHindi, loading: loading, onPressed: onGoogle),
-
-        const SizedBox(height: 22),
-
-        Text(
-          isHindi
-              ? 'जारी रखकर आप हमारी शर्तों और गोपनीयता नीति से सहमत हैं।'
-              : 'By continuing, you agree to our Terms and Privacy Policy.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            color: Colors.white.withValues(alpha: 0.35),
-            fontSize: 10.5,
-            height: 1.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// OTP SECTION
-// -----------------------------------------------------------------------------
-
-class _OtpSection extends StatelessWidget {
-  final TextEditingController controller;
-  final String phone;
-  final bool isHindi;
-  final bool loading;
-  final String? error;
-  final VoidCallback onVerify;
-  final VoidCallback onBack;
-
-  const _OtpSection({
-    super.key,
-    required this.controller,
-    required this.phone,
-    required this.isHindi,
-    required this.loading,
-    required this.error,
-    required this.onVerify,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          isHindi ? 'आपका नंबर सत्यापित करें' : 'Verify your number',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 25,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        Text(
-          isHindi
-              ? '+91 $phone पर 6 अंकों का कोड भेजा गया है।'
-              : 'We sent a 6-digit code to +91 $phone.',
-          style: GoogleFonts.poppins(
-            color: Colors.white60,
-            fontSize: 13,
-            height: 1.5,
-          ),
-        ),
-
-        const SizedBox(height: 28),
-
-        _OtpField(controller: controller, isHindi: isHindi),
-
-        if (error != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            error!,
-            style: GoogleFonts.poppins(
-              color: const Color(0xFFFFA7A7),
-              fontSize: 12,
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 22),
-
-        _GlowButton(
-          text: isHindi ? 'सत्यापित करें' : 'Verify',
-          loading: loading,
-          onPressed: onVerify,
-        ),
-
-        const SizedBox(height: 18),
-
-        Center(
-          child: TextButton(
-            onPressed: onBack,
-            child: Text(
-              isHindi ? 'नंबर बदलें' : 'Change number',
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF72E9BF),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 6),
-
-        Center(
-          child: Text(
-            isHindi
-                ? 'OTP नहीं मिला? थोड़ी देर बाद फिर कोशिश करें।'
-                : "Didn't receive the code? Try again shortly.",
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// COMPONENTS
-// -----------------------------------------------------------------------------
-
-class _GlassField extends StatefulWidget {
-  final TextEditingController controller;
-  final String prefix;
+  final Widget? prefixIcon;
+  final Widget? suffixIcon;
   final String hint;
   final TextInputType keyboardType;
-  final String? error;
+  final bool obscureText;
 
-  const _GlassField({
+  const _GlassTextField({
     required this.controller,
-    required this.prefix,
+    this.prefixIcon,
+    this.suffixIcon,
     required this.hint,
-    required this.keyboardType,
-    required this.error,
+    this.keyboardType = TextInputType.text,
+    this.obscureText = false,
   });
 
   @override
-  State<_GlassField> createState() => _GlassFieldState();
+  State<_GlassTextField> createState() => _GlassTextFieldState();
 }
 
-class _GlassFieldState extends State<_GlassField> {
+class _GlassTextFieldState extends State<_GlassTextField> {
   bool focused = false;
 
   @override
@@ -630,11 +551,11 @@ class _GlassFieldState extends State<_GlassField> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        height: 66,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: 60,
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.055),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: focused
                 ? const Color(0xFF6AE8BE).withValues(alpha: 0.6)
@@ -651,42 +572,36 @@ class _GlassFieldState extends State<_GlassField> {
         ),
         child: Row(
           children: [
-            Text(
-              widget.prefix,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+            if (widget.prefixIcon != null) ...[
+              widget.prefixIcon!,
+              const SizedBox(width: 12),
+              Container(
+                width: 1,
+                height: 18,
+                color: Colors.white.withValues(alpha: 0.12),
               ),
-            ),
-            const SizedBox(width: 14),
-            Container(
-              width: 1,
-              height: 25,
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
-            const SizedBox(width: 14),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               child: TextField(
                 controller: widget.controller,
                 keyboardType: widget.keyboardType,
-                maxLength: 10,
+                obscureText: widget.obscureText,
                 style: GoogleFonts.poppins(
                   color: Colors.white,
-                  fontSize: 16,
-                  letterSpacing: 1,
+                  fontSize: 14.5,
                 ),
                 decoration: InputDecoration(
-                  counterText: '',
                   hintText: widget.hint,
                   hintStyle: GoogleFonts.poppins(
                     color: Colors.white.withValues(alpha: 0.32),
-                    fontSize: 15,
+                    fontSize: 14.5,
                   ),
                   border: InputBorder.none,
                 ),
               ),
             ),
+            if (widget.suffixIcon != null) widget.suffixIcon!,
           ],
         ),
       ),
@@ -694,74 +609,9 @@ class _GlassFieldState extends State<_GlassField> {
   }
 }
 
-class _OtpField extends StatefulWidget {
-  final TextEditingController controller;
-  final bool isHindi;
-
-  const _OtpField({required this.controller, required this.isHindi});
-
-  @override
-  State<_OtpField> createState() => _OtpFieldState();
-}
-
-class _OtpFieldState extends State<_OtpField> {
-  bool focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      onFocusChange: (value) {
-        setState(() {
-          focused = value;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        height: 72,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.055),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: focused
-                ? const Color(0xFF6AE8BE).withValues(alpha: 0.65)
-                : Colors.white.withValues(alpha: 0.10),
-          ),
-          boxShadow: focused
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF5DE2B0).withValues(alpha: 0.12),
-                    blurRadius: 28,
-                  ),
-                ]
-              : [],
-        ),
-        child: TextField(
-          controller: widget.controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 25,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 12,
-          ),
-          decoration: InputDecoration(
-            counterText: '',
-            hintText: '• • • • • •',
-            hintStyle: GoogleFonts.poppins(
-              color: Colors.white24,
-              fontSize: 20,
-              letterSpacing: 5,
-            ),
-            border: InputBorder.none,
-          ),
-        ),
-      ),
-    );
-  }
-}
+// -----------------------------------------------------------------------------
+// BUTTONS
+// -----------------------------------------------------------------------------
 
 class _GlowButton extends StatelessWidget {
   final String text;
@@ -778,10 +628,10 @@ class _GlowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: 56,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF5DE2B0).withValues(alpha: 0.20),
@@ -794,12 +644,10 @@ class _GlowButton extends StatelessWidget {
           onPressed: loading ? null : onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF6AE8BE),
-            disabledBackgroundColor: const Color(
-              0xFF6AE8BE,
-            ).withValues(alpha: 0.55),
+            disabledBackgroundColor: const Color(0xFF6AE8BE).withValues(alpha: 0.55),
             foregroundColor: const Color(0xFF063B2D),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
           child: AnimatedSwitcher(
@@ -842,7 +690,7 @@ class _GoogleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 54,
       child: OutlinedButton(
         onPressed: loading ? null : onPressed,
         style: OutlinedButton.styleFrom(
@@ -850,7 +698,7 @@ class _GoogleButton extends StatelessWidget {
           side: BorderSide(color: Colors.white.withValues(alpha: 0.13)),
           backgroundColor: Colors.white.withValues(alpha: 0.045),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         child: loading
@@ -866,8 +714,8 @@ class _GoogleButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 25,
-                    height: 25,
+                    width: 22,
+                    height: 22,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white,
@@ -878,7 +726,7 @@ class _GoogleButton extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           color: Colors.black87,
                           fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -910,7 +758,7 @@ class _BackButton extends StatelessWidget {
       icon: const Icon(
         Icons.arrow_back_ios_new_rounded,
         color: Colors.white70,
-        size: 19,
+        size: 18,
       ),
       style: IconButton.styleFrom(
         backgroundColor: Colors.white.withValues(alpha: 0.055),
@@ -925,7 +773,7 @@ class _MiniLeaf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: const Size(58, 58), painter: _LeafPainter());
+    return CustomPaint(size: const Size(54, 54), painter: _LeafPainter());
   }
 }
 
@@ -955,19 +803,16 @@ class _LoginBackground extends StatelessWidget {
             ),
           ),
         ),
-
         Positioned(
           top: -120,
           right: -80,
           child: _AmbientGlow(size: 320, color: const Color(0xFF45D9A4)),
         ),
-
         Positioned(
           bottom: -150,
           left: -100,
           child: _AmbientGlow(size: 360, color: const Color(0xFF1479A8)),
         ),
-
         CustomPaint(painter: _FieldLinesPainter()),
       ],
     );
@@ -1063,9 +908,7 @@ class _FieldLinesPainter extends CustomPainter {
 
     for (int i = -3; i < 9; i++) {
       final path = Path();
-
       path.moveTo(size.width * 0.05, size.height * (0.25 + i * 0.10));
-
       path.cubicTo(
         size.width * 0.35,
         size.height * (0.10 + i * 0.10),
@@ -1074,7 +917,6 @@ class _FieldLinesPainter extends CustomPainter {
         size.width * 1.05,
         size.height * (0.22 + i * 0.10),
       );
-
       canvas.drawPath(path, paint);
     }
   }

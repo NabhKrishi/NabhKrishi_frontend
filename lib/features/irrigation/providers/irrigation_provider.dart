@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../data/repositories/irrigation_repository.dart';
 import '../models/irrigation_models.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../services/firestore_service.dart';
 
 class IrrigationState {
   final bool isLoading;
@@ -54,7 +57,7 @@ class IrrigationNotifier extends FamilyNotifier<IrrigationState, String> {
         Future.microtask(() => fetchRecommendation(lat, lng));
         return IrrigationState(
           isLoading: true,
-          loadingStage: 'loading_weather',
+          loadingStage: 'connecting_to_nabhkrishi',
         );
       }
     }
@@ -69,7 +72,7 @@ class IrrigationNotifier extends FamilyNotifier<IrrigationState, String> {
     if (!state.isLoading) {
       state = IrrigationState(
         isLoading: true,
-        loadingStage: 'loading_weather',
+        loadingStage: 'connecting_to_nabhkrishi',
       );
     }
 
@@ -77,8 +80,8 @@ class IrrigationNotifier extends FamilyNotifier<IrrigationState, String> {
     // since the backend /predict-location endpoint aggregates all data in a single call.
     int stage = 0;
     final List<String> stages = [
-      'loading_weather',
-      'loading_satellite',
+      'connecting_to_nabhkrishi',
+      'fetching_weather_satellite',
       'loading_analysis',
       'loading_recommendation'
     ];
@@ -114,22 +117,70 @@ class IrrigationNotifier extends FamilyNotifier<IrrigationState, String> {
         isLoading: false,
         data: response,
       );
-    } catch (e) {
+
+      _saveHistoryInBackground(latitude, longitude, response);
+    } catch (e, stackTrace) {
       stageTimer.cancel();
       coldStartTimer.cancel();
       _isFetching = false;
       
+      developer.log('Irrigation prediction flow error: $e\n$stackTrace');
+      
       String userError = 'error_generic';
-      if (e is NetworkException && e.statusCode == 502) {
-        userError = 'error_502';
-      } else if (e.toString().contains('timeout') || e.toString().contains('warming up')) {
-        userError = 'loading_cold_start';
+      if (e is NetworkException) {
+        if (e.statusCode == 502) {
+          userError = 'error_502';
+        } else if (e.message.contains('warming up') || e.message.contains('timed out') || e.message.contains('took too long')) {
+          userError = 'loading_cold_start';
+        } else {
+          userError = e.message;
+        }
+      } else {
+        userError = e.toString();
       }
       
       state = IrrigationState(
         isLoading: false,
         errorMessage: userError,
       );
+    }
+  }
+
+  Future<void> _saveHistoryInBackground(
+    double latitude,
+    double longitude,
+    LocationPredictionResponse response,
+  ) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        developer.log('Warning: No authenticated user. Cannot save prediction history.');
+        return;
+      }
+      
+      final firestoreService = ref.read(firestoreServiceProvider);
+      
+      // 1. Find closest farm matching the coordinates
+      final farmId = await firestoreService.findClosestFarm(user.uid, latitude, longitude);
+      if (farmId == null) {
+        developer.log('Warning: No matching saved farm found for coordinates ($latitude, $longitude). History not saved.');
+        return;
+      }
+      
+      // 2. Save prediction history
+      await firestoreService.savePredictionHistory(
+        userId: user.uid,
+        farmId: farmId,
+        irrigationAmount: response.recommendation.irrigationMm,
+        rainfall: response.weatherFeatures.rain7d,
+        temperature: response.weatherFeatures.tempMean,
+        humidity: response.weatherFeatures.humidityMean,
+        et0: response.weatherFeatures.et07d,
+        deficit: response.weatherFeatures.deficit7d,
+      );
+      developer.log('Successfully saved prediction history for farm $farmId.');
+    } catch (e, stackTrace) {
+      developer.log('Warning: Failed to save prediction history to Firestore: $e\n$stackTrace');
     }
   }
 }
