@@ -8,10 +8,12 @@ import '../services/chatbot_service.dart';
 
 class NabhKrishiChatbotScreen extends ConsumerStatefulWidget {
   final bool isHindi;
+  final String? initialPrompt;
 
   const NabhKrishiChatbotScreen({
     super.key,
     this.isHindi = false,
+    this.initialPrompt,
   });
 
   @override
@@ -34,6 +36,9 @@ class _NabhKrishiChatbotScreenState
   void initState() {
     super.initState();
     _addInitialWelcomeMessage();
+    if (widget.initialPrompt != null && widget.initialPrompt!.trim().isNotEmpty) {
+      _textController.text = widget.initialPrompt!;
+    }
   }
 
   void _addInitialWelcomeMessage() {

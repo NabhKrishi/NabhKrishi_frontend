@@ -7,3 +7,6 @@ pypdf
 sentence-transformers
 python-dotenv
 openai
+torchvision
+pillow
+python-multipart

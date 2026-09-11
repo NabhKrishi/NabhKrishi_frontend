@@ -4,33 +4,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import '../core/constants/api_constants.dart';
 
-/// Configuration class for Chatbot API endpoints.
+/// Configuration adapter for Chatbot and Vision API endpoints.
+/// Points directly to the central LAN configuration in [ApiConstants].
 class ChatbotConfig {
   ChatbotConfig._();
 
-  /// Default local development URL:
-  /// - Environment flag: --dart-define=BACKEND_URL=http://...
-  /// - Android Emulator: http://10.0.2.2:8000
-  /// - iOS Simulator / Desktop / Web: http://127.0.0.1:8000
-  /// - Physical device: set to your local machine IP (e.g., http://192.168.1.X:8000)
-  static String get defaultBaseUrl {
-    const envUrl = String.fromEnvironment('BACKEND_URL', defaultValue: '');
-    if (envUrl.isNotEmpty) {
-      return envUrl;
-    }
-    if (kIsWeb) return 'http://127.0.0.1:8000';
-    try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:8000';
-      if (Platform.isIOS || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-        return 'http://127.0.0.1:8000';
-      }
-    } catch (_) {}
-    return 'http://127.0.0.1:8000';
-  }
+  /// Default base URL resolved from [ApiConstants].
+  static String get defaultBaseUrl => ApiConstants.resolvedBaseUrl;
 
-  /// Active base URL (can be customized at runtime if needed).
-  static String activeBaseUrl = defaultBaseUrl;
+  /// Active base URL.
+  static String activeBaseUrl = ApiConstants.resolvedBaseUrl;
 }
 
 /// Response returned from the Python Chatbot API.
@@ -73,7 +58,7 @@ class ChatMessage {
   });
 }
 
-/// Chatbot Service handling HTTP communication with the Python RAG backend.
+/// Chatbot Service handling HTTP communication with the Python RAG backend over LAN.
 class ChatbotService {
   final http.Client _client;
   String baseUrl;
@@ -82,15 +67,23 @@ class ChatbotService {
     http.Client? client,
     String? baseUrl,
   })  : _client = client ?? http.Client(),
-        baseUrl = baseUrl ?? ChatbotConfig.activeBaseUrl;
+        baseUrl = baseUrl ?? ApiConstants.resolvedBaseUrl;
 
-  /// Send a question to the NabhKrishi AI RAG backend.
+  /// Send a question to the NabhKrishi AI RAG backend via FastAPI over LAN.
   Future<ChatbotResponse> sendMessage({
     required String message,
     String? conversationId,
     String? userId,
   }) async {
-    final uri = Uri.parse('$baseUrl/chat');
+    // Check if the IP has been configured
+    if (!ApiConstants.isConfigured && !baseUrl.contains('http://10.') && !baseUrl.contains('http://192.168.')) {
+      throw Exception(
+        'Laptop IP not configured. Please set your laptop Wi-Fi IPv4 address in '
+        'lib/core/constants/api_constants.dart (e.g. const String apiBaseUrl = \'http://<YOUR_IP>:8000\';) '
+        'or run with --dart-define=BACKEND_URL=http://<YOUR_IP>:8000',
+      );
+    }
+
     final headers = {'Content-Type': 'application/json; charset=utf-8'};
     final payload = <String, dynamic>{
       'conversation_id': conversationId,
@@ -101,16 +94,15 @@ class ChatbotService {
     }
     final body = jsonEncode(payload);
 
-    debugPrint('Chatbot [REQUEST] URL: $uri (Method: POST)');
-    debugPrint('Chatbot [REQUEST] Payload: $body');
+    final targetUri = Uri.parse('$baseUrl/chat');
+    debugPrint('Chatbot [CONNECT] Sending message to $targetUri');
 
     try {
       final response = await _client
-          .post(uri, headers: headers, body: body)
-          .timeout(const Duration(seconds: 120));
+          .post(targetUri, headers: headers, body: body)
+          .timeout(const Duration(seconds: 60));
 
       debugPrint('Chatbot [RESPONSE] Status: ${response.statusCode}');
-      debugPrint('Chatbot [RESPONSE] Body: ${response.body}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
@@ -127,31 +119,32 @@ class ChatbotService {
         throw Exception(errDetail);
       }
     } on SocketException catch (e) {
-      debugPrint('Chatbot [SOCKET ERROR] Cannot reach $baseUrl: $e');
-      throw Exception("Sorry, I couldn't connect to NabhKrishi AI. Please check your backend connection.");
+      debugPrint('Chatbot [WARN] Connection to $targetUri failed: $e');
+      throw Exception(
+        "Could not connect to NabhKrishi AI at $baseUrl. "
+        "Please ensure your phone and laptop are on the same Wi-Fi network and FastAPI is running with --host 0.0.0.0.",
+      );
     } on TimeoutException catch (e) {
-      debugPrint('Chatbot [TIMEOUT ERROR] Request to $uri timed out: $e');
-      throw Exception("Server took too long to respond. Please try again.");
-    } on FormatException catch (e) {
-      debugPrint('Chatbot [FORMAT ERROR] Failed to parse server response: $e');
-      throw Exception("Received an invalid response format from server. Please try again.");
+      debugPrint('Chatbot [WARN] $targetUri timed out: $e');
+      throw Exception("AI response timed out. The server may be processing a complex query. Please try again.");
     } catch (e) {
-      debugPrint('Chatbot [UNEXPECTED ERROR]: $e');
-      if (e is Exception) rethrow;
-      throw Exception("Sorry, I couldn't connect to NabhKrishi AI. Please try again.");
+      debugPrint('Chatbot [ERROR] Exception during chat request: $e');
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception("Failed to communicate with NabhKrishi AI backend.");
     }
   }
 
   /// Check if the backend API is online.
   Future<bool> checkHealth() async {
     try {
-      final uri = Uri.parse('$baseUrl/health');
-      debugPrint('Chatbot [HEALTH CHECK] Testing $uri ...');
-      final response = await _client.get(uri).timeout(const Duration(seconds: 10));
-      debugPrint('Chatbot [HEALTH CHECK] Status: ${response.statusCode}');
+      final targetUri = Uri.parse('$baseUrl/health');
+      debugPrint('Chatbot [HEALTH CHECK] Testing $targetUri ...');
+      final response = await _client.get(targetUri).timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint('Chatbot [HEALTH CHECK ERROR]: $e');
+      debugPrint('Chatbot [HEALTH CHECK] Failed: $e');
       return false;
     }
   }

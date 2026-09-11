@@ -14,9 +14,12 @@ import '../../../location/models/location_model.dart';
 import '../../../irrigation/models/irrigation_models.dart';
 import '../../../irrigation/providers/irrigation_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../models/farm_model.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../screens/nabhkrishi_chatbot_screen.dart';
+import '../../../crop_disease/presentation/widgets/crop_disease_result_dialog.dart';
+import '../../../crop_disease/services/crop_disease_service.dart';
 import 'analytics_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -1456,6 +1459,176 @@ class _ErrorCard extends StatelessWidget {
 class _HumanActions extends ConsumerWidget {
   const _HumanActions();
 
+  Future<void> _handleCropScan(BuildContext context, bool isHindi) async {
+    final picker = ImagePicker();
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF0C2A34),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                isHindi ? 'फसल की फोटो लें या चुनें' : 'Scan Wheat Crop',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isHindi
+                    ? 'पीला रतुआ और अन्य रोगों की जांच के लिए'
+                    : 'For yellow rust and disease detection',
+                style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11),
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF72E6BA).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF72E6BA), size: 22),
+                ),
+                title: Text(
+                  isHindi ? 'कैमरे से फोटो लें' : 'Take Photo (Camera)',
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8DC7FF).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF8DC7FF), size: 22),
+                ),
+                title: Text(
+                  isHindi ? 'गैलरी से चुनें' : 'Choose from Gallery',
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile == null) return;
+
+      if (!context.mounted) return;
+
+      // Show loading indicator during Swin-T model inference
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (loadingCtx) => Dialog(
+          backgroundColor: const Color(0xFF0C2A34),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Color(0xFF6CE6B6),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    isHindi ? 'पत्ती का विश्लेषण हो रहा है...' : 'Analyzing wheat leaf...',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      CropDiseaseResult? result;
+      String? errorMessage;
+
+      try {
+        result = await predictCropDisease(pickedFile.path);
+      } catch (err) {
+        debugPrint('Swin-T disease prediction failed: $err');
+        errorMessage = err.toString().replaceFirst('Exception: ', '');
+      }
+
+      // Close loading dialog if context is still mounted
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+
+        if (result != null) {
+          showDialog(
+            context: context,
+            builder: (_) => CropDiseaseResultDialog(
+              result: result!,
+              isHindi: isHindi,
+            ),
+          );
+        } else if (errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF143844),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFFF8B8B), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      errorMessage,
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking image for crop scan: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLanguage = ref.watch(languageProvider);
@@ -1489,7 +1662,7 @@ class _HumanActions extends ConsumerWidget {
                 subtitle: isHindi ? 'फोटो से जांचें' : 'Take a photo',
                 accent: const Color(0xFF72E6BA),
                 height: 118,
-                onTap: () {},
+                onTap: () => _handleCropScan(context, isHindi),
               ),
             ),
             const SizedBox(width: 11),
