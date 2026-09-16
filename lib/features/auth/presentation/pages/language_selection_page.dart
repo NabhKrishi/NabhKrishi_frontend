@@ -57,8 +57,8 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 800),
         reverseTransitionDuration: const Duration(milliseconds: 550),
-        pageBuilder: (_, animation, __) => LoginPage(language: language),
-        transitionsBuilder: (_, animation, __, child) {
+        pageBuilder: (_, animation, _) => LoginPage(language: language),
+        transitionsBuilder: (_, animation, _, child) {
           final curved = CurvedAnimation(
             parent: animation,
             curve: Curves.easeInOutCubic,
@@ -121,13 +121,15 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
               ),
 
               SafeArea(
-                child: Padding(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 28,
+                    vertical: 16,
                   ),
                   child: Column(
                     children: [
-                      const Spacer(),
+                      const SizedBox(height: 12),
 
                       // --------------------------------------------------
                       // LEAF
@@ -234,9 +236,7 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
                                   });
                                 },
                               ),
-
-                              const SizedBox(height: 14),
-
+                              const SizedBox(height: 10),
                               _LanguageCard(
                                 title: 'हिन्दी',
                                 subtitle: 'हिन्दी में जारी रखें',
@@ -245,6 +245,54 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
                                 onTap: () {
                                   setState(() {
                                     language = 'Hindi';
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              _LanguageCard(
+                                title: 'ਪੰਜਾਬੀ',
+                                subtitle: 'ਪੰਜਾਬੀ ਵਿੱਚ ਜਾਰੀ ਰੱਖੋ',
+                                symbol: 'ਪੰ',
+                                selected: language == 'Punjabi',
+                                onTap: () {
+                                  setState(() {
+                                    language = 'Punjabi';
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              _LanguageCard(
+                                title: 'বাংলা',
+                                subtitle: 'বাংলায় এগিয়ে যান',
+                                symbol: 'বা',
+                                selected: language == 'Bengali',
+                                onTap: () {
+                                  setState(() {
+                                    language = 'Bengali';
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              _LanguageCard(
+                                title: 'हरियाणवी',
+                                subtitle: 'हरियाणवी में आगे बढ़ो',
+                                symbol: 'हरि',
+                                selected: language == 'Haryanvi',
+                                onTap: () {
+                                  setState(() {
+                                    language = 'Haryanvi';
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              _LanguageCard(
+                                title: 'Hinglish',
+                                subtitle: 'Hinglish mein aage badhein',
+                                symbol: 'Hing',
+                                selected: language == 'Hinglish',
+                                onTap: () {
+                                  setState(() {
+                                    language = 'Hinglish';
                                   });
                                 },
                               ),
@@ -289,7 +337,7 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage>
                         ),
                       ),
 
-                      const Spacer(),
+                      const SizedBox(height: 20),
 
                       Opacity(
                         opacity: (button * 0.40)
@@ -659,9 +707,9 @@ class _LanguageCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
-        height: 78,
+        height: 68,
         padding: const EdgeInsets.symmetric(
-          horizontal: 18,
+          horizontal: 16,
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),

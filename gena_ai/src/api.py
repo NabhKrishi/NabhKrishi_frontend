@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Optional, List
 
@@ -30,12 +31,16 @@ if sys.platform == "win32":
 
 from chatbot import (
     generate_answer,
+    generate_answer_with_timing,
     detect_language,
+    resolve_target_language,
     update_conversation_summary
 )
 from database import (
     create_conversation,
     save_message,
+    save_message_local,
+    persist_message_to_supabase,
     get_conversation
 )
 from vision import (
@@ -61,17 +66,25 @@ app = FastAPI(
     version="1.1.0"
 )
 
-# Pre-load Swin-T and PPO V3 models once on startup
+# Pre-load Swin-T, PPO V3, and ChromaDB vectorstore once on startup
 @app.on_event("startup")
 def startup_event():
     try:
         load_vision_model()
+        print("Swin-T vision model pre-loaded successfully.")
     except Exception as e:
         print(f"Warning: Failed to preload Swin-T model on startup: {e}")
     try:
         load_ppo_model()
+        print("PPO V3 policy pre-loaded successfully.")
     except Exception as e:
         print(f"Warning: Failed to preload PPO V3 model on startup: {e}")
+    try:
+        from retriever import retrieve_documents
+        _ = retrieve_documents("wheat yellow rust", k=1)
+        print("ChromaDB vectorstore and BGE embeddings pre-loaded successfully.")
+    except Exception as e:
+        print(f"Warning: Failed to pre-warm retriever on startup: {e}")
 
 # ============================================================
 # 2. CORS Middleware
@@ -93,6 +106,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     message: str
     user_id: Optional[str] = None
+    language: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -276,45 +290,74 @@ def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks):
             import uuid
             conversation_id = str(uuid.uuid4())
 
-    # 2. Save farmer message to Supabase
+    # 2. Save farmer message to fast in-memory store immediately (0ms)
+    t_db0 = time.perf_counter()
     try:
-        save_message(
+        save_message_local(
+            conversation_id=conversation_id,
+            role="user",
+            content=question
+        )
+        # Offload remote Supabase write to background task so it never blocks the response
+        background_tasks.add_task(
+            persist_message_to_supabase,
             conversation_id=conversation_id,
             role="user",
             content=question
         )
     except Exception as e:
-        print(f"Warning: Failed to save user message: {e}")
+        print(f"Warning: Failed to queue user message save: {e}")
+    t_supabase_init = time.perf_counter() - t_db0
+    t_start = time.perf_counter()
 
-    # 3. Detect language
+    # 3. Generate RAG answer with decoupled priority resolution
+    ui_selected_language = request.language
     try:
-        language = detect_language(question)
-    except Exception as e:
-        print(f"Language detection error: {e}")
-        language = "English"
-
-    # 4. Generate RAG answer (passing pre-detected language)
-    try:
-        answer = generate_answer(
+        answer, timings = generate_answer_with_timing(
             question=question,
             conversation_id=conversation_id,
-            language=language
+            ui_selected_language=ui_selected_language
         )
+        target_lang = timings.get("target_language") or "English"
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error generating AI answer: {str(e)}"
         )
 
-    # 5. Save AI response to Supabase
+    # 4. Save AI response to in-memory store immediately (0ms) and queue remote persistence
+    t_db1 = time.perf_counter()
     try:
-        save_message(
+        save_message_local(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=answer
+        )
+        background_tasks.add_task(
+            persist_message_to_supabase,
             conversation_id=conversation_id,
             role="assistant",
             content=answer
         )
     except Exception as e:
-        print(f"Warning: Failed to save AI message: {e}")
+        print(f"Warning: Failed to queue AI message save: {e}")
+    t_supabase_end = time.perf_counter() - t_db1
+    supabase_save_time = t_supabase_init + t_supabase_end
+
+    t_total = time.perf_counter() - t_start
+
+    # Log complete technical timings required for monitoring
+    print(f"""
+[CHAT_TIMING]
+language_detection={timings.get('language_detection', 0.0):.3f}s
+query_translation={timings.get('query_translation', 0.0):.3f}s
+retrieval={timings.get('retrieval', 0.0):.3f}s
+prompt_construction={timings.get('prompt_construction', 0.0):.3f}s
+llm_generation={timings.get('llm_generation', 0.0):.3f}s
+answer_translation={timings.get('answer_translation', 0.0):.3f}s
+supabase_save={supabase_save_time:.3f}s
+total={t_total:.3f}s
+""".strip())
 
     # 6. Update conversation summary asynchronously via FastAPI BackgroundTasks
     try:
@@ -325,7 +368,7 @@ def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks):
     return ChatResponse(
         conversation_id=conversation_id,
         answer=answer,
-        language=language
+        language=target_lang
     )
 
 

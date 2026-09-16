@@ -177,7 +177,7 @@ def predict_wheat_disease(
     model = load_vision_model()
     tensor = preprocess_image(image_input).to(_device)
 
-    with torch.inference_mode():
+    with torch.no_grad():
         logits = model(tensor)
         probabilities = torch.softmax(logits, dim=1).squeeze(0)
 

@@ -29,25 +29,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _loading = false;
   String? _localError;
 
-  bool get isHindi => widget.language == 'Hindi';
+  bool get isHindi => widget.language.toLowerCase() == 'hindi' || widget.language.toLowerCase() == 'hi';
 
   String get title {
     if (_mode == AuthMode.signIn) {
-      return isHindi ? 'नाभकृषि में आपका स्वागत है' : 'Welcome to NabhKrishi';
+      return AppLocalizations.get('welcome_title', widget.language);
     } else if (_mode == AuthMode.signUp) {
-      return isHindi ? 'साइन अप करें' : 'Create Account';
+      return AppLocalizations.get('create_account', widget.language);
     } else {
-      return isHindi ? 'पासवर्ड रीसेट करें' : 'Reset Password';
+      return AppLocalizations.get('reset_password', widget.language);
     }
   }
 
   String get subtitle {
     if (_mode == AuthMode.signIn) {
-      return isHindi ? 'आपकी खेती, हमारे साथ और स्मार्ट।' : 'Your farm. Your future. Smarter.';
+      return AppLocalizations.get('welcome_subtitle', widget.language);
     } else if (_mode == AuthMode.signUp) {
-      return isHindi ? 'नाभकृषि परिवार का हिस्सा बनने के लिए फॉर्म भरें।' : 'Fill the details to join NabhKrishi.';
+      return AppLocalizations.get('join_subtitle', widget.language);
     } else {
-      return isHindi ? 'अपने पंजीकृत ईमेल पर रीसेट लिंक भेजने के लिए ईमेल दर्ज करें।' : 'Enter your email to receive a password reset link.';
+      return AppLocalizations.get('reset_subtitle', widget.language);
     }
   }
 
@@ -90,7 +90,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       // Name check
       if (name.isEmpty) {
         setState(() {
-          _localError = isHindi ? 'कृपया अपना पूरा नाम दर्ज करें।' : 'Please enter your full name.';
+          final l = widget.language.toLowerCase();
+          if (l.contains('pa') || l.contains('punjabi')) {
+            _localError = 'ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਪੂਰਾ ਨਾਮ ਦਰਜ ਕਰੋ।';
+          } else if (l.contains('bn') || l.contains('bengali')) {
+            _localError = 'অনুগ্রহ করে আপনার পুরো নাম লিখুন।';
+          } else if (l.contains('hr') || l.contains('haryanvi')) {
+            _localError = 'अपना पूरा नाम लिखो जी।';
+          } else if (l.contains('hinglish')) {
+            _localError = 'Kripya apna poora naam darj karein.';
+          } else if (l.contains('hi') || l.contains('hindi')) {
+            _localError = 'कृपया अपना पूरा नाम दर्ज करें।';
+          } else {
+            _localError = 'Please enter your full name.';
+          }
         });
         return false;
       }
@@ -165,7 +178,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.55),
       transitionDuration: const Duration(milliseconds: 450),
-      pageBuilder: (_, __, ___) {
+      pageBuilder: (_, _, _) {
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(28),
@@ -260,7 +273,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         );
       },
-      transitionBuilder: (_, animation, __, child) {
+      transitionBuilder: (_, animation, _, child) {
         return FadeTransition(
           opacity: animation,
           child: ScaleTransition(

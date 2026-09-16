@@ -18,8 +18,17 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase = None
 if SUPABASE_URL and SUPABASE_KEY:
     try:
-        from supabase import create_client
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        # pyrefly: ignore [missing-import]
+        from supabase import create_client, ClientOptions
+        supabase = create_client(
+            SUPABASE_URL,
+            SUPABASE_KEY,
+            options=ClientOptions(
+                postgrest_client_timeout=1.5,
+                storage_client_timeout=1.5,
+                function_client_timeout=1.5
+            )
+        )
     except Exception as e:
         print(f"[Database] Warning: Failed to initialize Supabase client: {e}")
 
@@ -36,31 +45,36 @@ def create_conversation(
     user_id=None,
     title="New Conversation"
 ):
+    conv_id = str(uuid.uuid4())
     data = {
+        "id": conv_id,
         "title": title,
-        "summary": ""
+        "summary": "",
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
     if user_id:
         data["user_id"] = user_id
+    _local_conversations[conv_id] = data
 
     if supabase is not None:
         try:
+            insert_data = {"title": title, "summary": ""}
+            if user_id:
+                insert_data["user_id"] = user_id
             response = (
                 supabase
                 .table("conversations")
-                .insert(data)
+                .insert(insert_data)
                 .execute()
             )
             if response.data and len(response.data) > 0:
-                return response.data[0]
+                remote_data = response.data[0]
+                _local_conversations[remote_data["id"]] = remote_data
+                return remote_data
         except Exception as e:
             print(f"[Database] Supabase create_conversation failed ({e}), using local session")
 
     # Local fallback
-    conv_id = str(uuid.uuid4())
-    data["id"] = conv_id
-    data["created_at"] = datetime.now(timezone.utc).isoformat()
-    _local_conversations[conv_id] = data
     return data
 
 
@@ -68,36 +82,57 @@ def create_conversation(
 # 4. Save message
 # ============================================================
 
-def save_message(
+def save_message_local(
     conversation_id,
     role,
     content
 ):
-    data = {
+    local_record = {
         "conversation_id": conversation_id,
         "role": role,
-        "content": content
+        "content": content,
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
 
+    # Ensure in-memory store has it immediately (0ms delay)
+    if conversation_id not in _local_messages:
+        _local_messages[conversation_id] = []
+    _local_messages[conversation_id].append(local_record)
+    return local_record
+
+
+def persist_message_to_supabase(
+    conversation_id,
+    role,
+    content
+):
     if supabase is not None:
         try:
             response = (
                 supabase
                 .table("messages")
-                .insert(data)
+                .insert({
+                    "conversation_id": conversation_id,
+                    "role": role,
+                    "content": content
+                })
                 .execute()
             )
             if response.data and len(response.data) > 0:
                 return response.data[0]
         except Exception as e:
-            print(f"[Database] Supabase save_message failed ({e}), using local store")
+            print(f"[Database] Supabase background save_message failed ({e}), local store intact")
+    return None
 
-    # Local fallback
-    if conversation_id not in _local_messages:
-        _local_messages[conversation_id] = []
-    data["created_at"] = datetime.now(timezone.utc).isoformat()
-    _local_messages[conversation_id].append(data)
-    return data
+
+def save_message(
+    conversation_id,
+    role,
+    content
+):
+    local_record = save_message_local(conversation_id, role, content)
+    persist_message_to_supabase(conversation_id, role, content)
+    return local_record
 
 
 # ============================================================
@@ -108,6 +143,11 @@ def get_recent_messages(
     conversation_id,
     limit=10
 ):
+    # Check local in-memory cache first to eliminate unnecessary network latency
+    local_msgs = _local_messages.get(conversation_id, [])
+    if local_msgs:
+        return local_msgs[-limit:]
+
     if supabase is not None:
         try:
             response = (
@@ -120,14 +160,14 @@ def get_recent_messages(
                 .execute()
             )
             messages = response.data or []
-            messages.reverse()
-            return messages
+            if messages:
+                messages.reverse()
+                return messages
         except Exception as e:
             print(f"[Database] Supabase get_recent_messages failed ({e}), using local store")
 
     # Local fallback
-    msgs = _local_messages.get(conversation_id, [])
-    return msgs[-limit:]
+    return local_msgs[-limit:]
 
 
 # ============================================================
@@ -190,4 +230,53 @@ def update_summary(
 
     if conversation_id in _local_conversations:
         _local_conversations[conversation_id]["summary"] = summary
+    return None
+
+
+# ============================================================
+# 9. Conversation language state management
+# ============================================================
+
+_conversation_languages = {}
+
+def set_conversation_language(
+    conversation_id: str,
+    language: str
+):
+    if not conversation_id:
+        return
+    _conversation_languages[conversation_id] = language
+    if conversation_id in _local_conversations:
+        _local_conversations[conversation_id]["language"] = language
+    if supabase is not None:
+        try:
+            supabase.table("conversations").update({"language": language}).eq("id", conversation_id).execute()
+        except Exception:
+            pass
+
+
+def get_conversation_language(
+    conversation_id: str
+):
+    if not conversation_id:
+        return None
+    if conversation_id in _conversation_languages:
+        return _conversation_languages[conversation_id]
+    if conversation_id in _local_conversations:
+        return _local_conversations[conversation_id].get("language")
+    if supabase is not None:
+        try:
+            res = (
+                supabase
+                .table("conversations")
+                .select("language")
+                .eq("id", conversation_id)
+                .single()
+                .execute()
+            )
+            if res.data and "language" in res.data and res.data["language"]:
+                _conversation_languages[conversation_id] = res.data["language"]
+                return res.data["language"]
+        except Exception:
+            pass
     return None

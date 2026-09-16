@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../auth/presentation/pages/language_selection_page.dart';
 import '../../../auth/providers/auth_provider.dart';
 
 class SplashPage extends ConsumerStatefulWidget {

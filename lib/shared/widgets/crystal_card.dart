@@ -44,21 +44,21 @@ class _CrystalCardState extends State<CrystalCard> {
               borderRadius: BorderRadius.circular(28),
               gradient: LinearGradient(
                 colors: [
-                  Colors.white.withOpacity(.18),
-                  Colors.white.withOpacity(.08),
+                  Colors.white.withValues(alpha: .18),
+                  Colors.white.withValues(alpha: .08),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
-                color: Colors.white.withOpacity(.22),
+                color: Colors.white.withValues(alpha: .22),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   blurRadius: hovered ? 40 : 20,
                   spreadRadius: hovered ? 2 : 0,
-                  color: Colors.black.withOpacity(.12),
+                  color: Colors.black.withValues(alpha: .12),
                   offset: const Offset(0, 12),
                 ),
               ],

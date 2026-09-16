@@ -33,7 +33,7 @@ class _AnimatedBlobsState extends State<AnimatedBlobs>
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: controller,
-        builder: (_, __) {
+        builder: (_, _) {
           final t = controller.value;
 
           return Stack(

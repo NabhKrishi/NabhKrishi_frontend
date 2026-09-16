@@ -1,21 +1,32 @@
+import '../../../../core/localization/app_localizations.dart';
+import '../../../language/providers/language_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../models/farm_model.dart';
 import '../../../../services/firestore_service.dart';
+import '../../../../shared/widgets/app_card.dart';
 
 class AnalyticsPage extends ConsumerStatefulWidget {
   final bool isHindi;
-  const AnalyticsPage({super.key, required this.isHindi});
+  final String? currentLanguage;
+  const AnalyticsPage({
+    super.key,
+    required this.isHindi,
+    this.currentLanguage,
+  });
 
   @override
   ConsumerState<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
 class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
+  String get _activeLang => widget.currentLanguage ?? ref.watch(languageProvider);
+
   String? _selectedFarmId;
   int _selectedFilterDays = 7; // 7, 30, or 0 (All)
   List<FarmModel> _farms = [];
@@ -41,7 +52,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       if (user == null) {
         setState(() {
           _loadingFarms = false;
-          _errorMessage = widget.isHindi ? 'कृपया पहले साइन इन करें।' : 'Please sign in first.';
+          _errorMessage = AppLocalizations.get('sign_in_first', _activeLang);
         });
         return;
       }
@@ -60,7 +71,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     } catch (e) {
       setState(() {
         _loadingFarms = false;
-        _errorMessage = widget.isHindi ? 'खेत लोड करने में विफल: $e' : 'Failed to load farms: $e';
+        _errorMessage = '${AppLocalizations.get('failed_load_farms', _activeLang)}: $e';
       });
     }
   }
@@ -91,7 +102,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     } catch (e) {
       setState(() {
         _loadingPredictions = false;
-        _errorMessage = widget.isHindi ? 'पूर्वानुमान इतिहास लोड करने में विफल: $e' : 'Failed to load predictions: $e';
+        _errorMessage = '${AppLocalizations.get('failed_load_predictions', _activeLang)}: $e';
       });
     }
   }
@@ -99,11 +110,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loadingFarms) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF031A22),
-        body: Center(
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6CE6B6)),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
           ),
         ),
       );
@@ -111,13 +122,13 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
     if (_errorMessage != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF031A22),
+        backgroundColor: AppColors.background,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
               _errorMessage!,
-              style: GoogleFonts.poppins(color: Colors.redAccent, fontSize: 14),
+              style: GoogleFonts.poppins(color: AppColors.danger, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ),
@@ -127,20 +138,31 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
     if (_farms.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF031A22),
+        backgroundColor: AppColors.background,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.analytics_outlined, color: Colors.white24, size: 64),
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.analytics_outlined, color: AppColors.textMuted, size: 36),
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  widget.isHindi
-                      ? "कोई विश्लेषिकी डेटा उपलब्ध नहीं है।\nट्रेंड देखने के लिए पहले होम स्क्रीन पर एक खेत सहेजें।"
-                      : "No analytics data available yet.\nSave a farm on the home screen first to see your trends.",
-                  style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13, height: 1.5),
+                  AppLocalizations.get('no_saved_farms', _activeLang),
+                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  AppLocalizations.get('save_farm_first', _activeLang),
+                  style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -151,36 +173,58 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF031A22),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadPredictionHistory,
-          color: const Color(0xFF6CE6B6),
-          backgroundColor: const Color(0xFF0C2A34),
+          color: AppColors.primary,
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
             children: [
+              // Title Header
+              Text(
+                AppLocalizations.get('insights_analytics', _activeLang),
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                AppLocalizations.get('insights_subtitle', _activeLang),
+                style: GoogleFonts.poppins(fontSize: 11.5, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+
               // Farm Selector Dropdown
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0C2A34),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  border: Border.all(color: AppColors.borderLight),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedFarmId,
-                    dropdownColor: const Color(0xFF0C2A34),
+                    dropdownColor: Colors.white,
                     isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF6CE6B6)),
-                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                    style: GoogleFonts.poppins(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
                     items: _farms.map((farm) {
                       final areaStr = farm.farmArea != null ? ' (${farm.farmArea!.toStringAsFixed(1)} ha)' : '';
                       return DropdownMenuItem<String>(
                         value: farm.farmId,
                         child: Text(
-                          '${widget.isHindi ? "खेत" : "Farm"} ${farm.latitude.toStringAsFixed(3)}, ${farm.longitude.toStringAsFixed(3)}$areaStr',
+                          '${AppLocalizations.get('field_label', _activeLang)} ${farm.latitude.toStringAsFixed(3)}, ${farm.longitude.toStringAsFixed(3)}$areaStr',
                           overflow: TextOverflow.ellipsis,
                         ),
                       );
@@ -197,7 +241,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // Filter Controls: 7 Days | 30 Days | All
               Row(
@@ -205,13 +249,13 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 children: [7, 30, 0].map((days) {
                   final selected = _selectedFilterDays == days;
                   String label = '';
-                  if (days == 7) label = widget.isHindi ? '7 दिन' : '7 Days';
-                  if (days == 30) label = widget.isHindi ? '30 दिन' : '30 Days';
-                  if (days == 0) label = widget.isHindi ? 'सभी' : 'All';
+                  if (days == 7) label = AppLocalizations.get('filter_7d', _activeLang);
+                  if (days == 30) label = AppLocalizations.get('filter_30d', _activeLang);
+                  if (days == 0) label = AppLocalizations.get('filter_all', _activeLang);
 
                   return Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
@@ -220,19 +264,28 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                           _loadPredictionHistory();
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
                           decoration: BoxDecoration(
-                            color: selected ? const Color(0xFF6CE6B6) : const Color(0xFF0C2A34),
+                            color: selected ? AppColors.primaryMedium : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: selected ? const Color(0xFF6CE6B6) : Colors.white.withValues(alpha: 0.08),
+                              color: selected ? AppColors.primaryMedium : AppColors.borderLight,
                             ),
+                            boxShadow: selected
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primaryMedium.withValues(alpha: 0.2),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ]
+                                : null,
                           ),
                           child: Center(
                             child: Text(
                               label,
                               style: GoogleFonts.poppins(
-                                color: selected ? const Color(0xFF031A22) : Colors.white70,
+                                color: selected ? Colors.white : AppColors.textSecondary,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -245,83 +298,95 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 }).toList(),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               if (_loadingPredictions)
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6CE6B6)),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
                   ),
                 )
               else if (_predictions.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.show_chart_rounded, color: Colors.white24, size: 48),
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.isHindi
-                              ? "इस समय अवधि के लिए कोई इतिहास नहीं है।\nसिफारिशें देखने के लिए पहले कुछ पूर्वानुमान लगाएं।"
-                              : "No history found for this time period.\nMake a few predictions first to see recommendations.",
-                          style: GoogleFonts.poppins(color: Colors.white38, fontSize: 12, height: 1.5),
-                          textAlign: TextAlign.center,
+                AppCard(
+                  padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceSoft,
+                          shape: BoxShape.circle,
                         ),
-                      ],
-                    ),
+                        child: const Icon(Icons.show_chart_rounded, color: AppColors.textMuted, size: 28),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        widget.isHindi
+                            ? "इस समय अवधि के लिए कोई इतिहास नहीं है।"
+                            : "No telemetry history found for this period.",
+                        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.isHindi
+                            ? "सिफारिशें देखने के लिए पहले कुछ दिन निगरानी जारी रखें।"
+                            : "Make a few irrigation observations to establish your crop trends.",
+                        style: GoogleFonts.poppins(color: AppColors.textMuted, fontSize: 11.5),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 )
               else ...[
                 // Summary Block
                 _buildSummaryGrid(),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Charts
                 _buildChartCard(
-                  title: widget.isHindi ? 'सिंचाई की सिफारिश' : 'Irrigation Recommendation',
+                  title: widget.isHindi ? 'सिंचाई की सिफारिश' : 'Irrigation Target',
                   subtitle: widget.isHindi ? 'दैनिक जल आवश्यकता (मिमी)' : 'Daily water application target (mm)',
                   unit: 'mm',
                   spots: _generateSpots((data) => data['irrigationAmount'] as double),
-                  color: const Color(0xFF6CE6B6),
+                  color: AppColors.primaryLight,
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
 
                 _buildChartCard(
                   title: widget.isHindi ? 'वर्षा इतिहास' : 'Rainfall History',
-                  subtitle: widget.isHindi ? 'पिछले 7 दिनों में वर्षा (मिमी)' : 'Rain accumulated in past 7 days (mm)',
+                  subtitle: widget.isHindi ? 'संचित वर्षा (मिमी)' : 'Cumulative rain measurements (mm)',
                   unit: 'mm',
                   spots: _generateSpots((data) => data['rainfall'] as double),
-                  color: const Color(0xFF2CA9C9),
+                  color: AppColors.weatherBlue,
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
 
                 _buildChartCard(
-                  title: widget.isHindi ? 'तापमान का स्तर' : 'Temperature Levels',
+                  title: widget.isHindi ? 'तापमान का स्तर' : 'Temperature Trend',
                   subtitle: widget.isHindi ? 'दैनिक औसत तापमान (°C)' : 'Daily mean temperature (°C)',
                   unit: '°C',
                   spots: _generateSpots((data) => data['temperature'] as double),
-                  color: const Color(0xFFFFB300),
+                  color: AppColors.warning,
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
 
                 _buildChartCard(
-                  title: widget.isHindi ? 'जल की कमी' : 'Water Deficit',
-                  subtitle: widget.isHindi ? 'संभावित जल रिक्तीकरण (मिमी)' : 'Potential soil water depletion (mm)',
+                  title: widget.isHindi ? 'जल की कमी (Deficit)' : 'Soil Water Deficit',
+                  subtitle: widget.isHindi ? 'संभावित जल रिक्तीकरण (मिमी)' : 'Estimated soil water deficit (mm)',
                   unit: 'mm',
                   spots: _generateSpots((data) => data['deficit'] as double),
-                  color: const Color(0xFFE57373),
+                  color: AppColors.danger,
                 ),
-
-                const SizedBox(height: 40),
               ]
             ],
           ),
@@ -347,34 +412,28 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     avgDeficit /= _predictions.length;
     avgHumidity /= _predictions.length;
 
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C2A34),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.isHindi ? 'अवधि सारांश' : 'Period Summary',
-            style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 14),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSummaryItem(
-                label: widget.isHindi ? 'कुल सिंचाई' : 'Total Irrigation',
-                val: '${totalIrrigation.toStringAsFixed(1)} mm',
-                icon: Icons.water_drop_rounded,
-                color: const Color(0xFF6CE6B6),
+              Text(
+                widget.isHindi ? 'अवधि सारांश' : 'Period Telemetry Summary',
+                style: GoogleFonts.poppins(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w800),
               ),
-              _buildSummaryItem(
-                label: widget.isHindi ? 'अधिकतम तापमान' : 'Peak Temp',
-                val: '${maxTemp.toStringAsFixed(1)} °C',
-                icon: Icons.wb_sunny_rounded,
-                color: const Color(0xFFFFB300),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.mintBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${_predictions.length} records',
+                  style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
               ),
             ],
           ),
@@ -382,16 +441,33 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           Row(
             children: [
               _buildSummaryItem(
+                label: widget.isHindi ? 'कुल सिंचाई' : 'Total Water',
+                val: '${totalIrrigation.toStringAsFixed(1)} mm',
+                icon: Icons.water_drop_rounded,
+                color: AppColors.primaryLight,
+              ),
+              _buildSummaryItem(
+                label: widget.isHindi ? 'अधिकतम तापमान' : 'Peak Temp',
+                val: '${maxTemp.toStringAsFixed(1)} °C',
+                icon: Icons.wb_sunny_rounded,
+                color: AppColors.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildSummaryItem(
                 label: widget.isHindi ? 'औसत कमी' : 'Avg Deficit',
                 val: '${avgDeficit.toStringAsFixed(1)} mm',
                 icon: Icons.bar_chart_rounded,
-                color: const Color(0xFFE57373),
+                color: AppColors.danger,
               ),
               _buildSummaryItem(
                 label: widget.isHindi ? 'औसत आर्द्रता' : 'Avg Humidity',
                 val: '${avgHumidity.toStringAsFixed(0)}%',
                 icon: Icons.cloud_queue_rounded,
-                color: const Color(0xFF2CA9C9),
+                color: AppColors.weatherBlue,
               ),
             ],
           ),
@@ -407,34 +483,46 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     required Color color,
   }) {
     return Expanded(
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 16),
             ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  val,
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          )
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w500),
+                  ),
+                  Text(
+                    val,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(color: AppColors.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -454,7 +542,6 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     required List<FlSpot> spots,
     required Color color,
   }) {
-    // Generate dates list for labelling X-axis
     final List<String> dates = _predictions.map((p) {
       final dateObj = p['date'];
       if (dateObj is Timestamp) {
@@ -464,37 +551,30 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       return '';
     }).toList();
 
-    return Container(
-      height: 280,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C2A34),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            style: GoogleFonts.poppins(color: AppColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             subtitle,
-            style: GoogleFonts.poppins(color: Colors.white38, fontSize: 9.5),
+            style: GoogleFonts.poppins(color: AppColors.textMuted, fontSize: 10),
           ),
           const SizedBox(height: 16),
-          Expanded(
+          SizedBox(
+            height: 180,
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
                   show: true,
-                  drawVerticalLine: true,
+                  drawVerticalLine: false,
                   horizontalInterval: 10,
-                  verticalInterval: 1,
-                  getDrawingHorizontalLine: (val) => FlLine(color: Colors.white.withValues(alpha: 0.04), strokeWidth: 1),
-                  getDrawingVerticalLine: (val) => FlLine(color: Colors.white.withValues(alpha: 0.04), strokeWidth: 1),
+                  getDrawingHorizontalLine: (val) => FlLine(color: AppColors.borderLight, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   show: true,
@@ -507,7 +587,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       getTitlesWidget: (val, meta) {
                         return Text(
                           '${val.toStringAsFixed(0)}$unit',
-                          style: GoogleFonts.poppins(color: Colors.white24, fontSize: 8.5),
+                          style: GoogleFonts.poppins(color: AppColors.textMuted, fontSize: 9),
                         );
                       },
                     ),
@@ -519,14 +599,13 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       getTitlesWidget: (val, meta) {
                         final idx = val.toInt();
                         if (idx >= 0 && idx < dates.length) {
-                          // Show max 4 dates on bottom axis to avoid overlap
                           final interval = (dates.length / 4).ceil();
                           if (idx == 0 || idx == dates.length - 1 || idx % interval == 0) {
                             return Padding(
-                              padding: const EdgeInsets.only(top: 6),
+                              padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 dates[idx],
-                                style: GoogleFonts.poppins(color: Colors.white24, fontSize: 8.5),
+                                style: GoogleFonts.poppins(color: AppColors.textMuted, fontSize: 9),
                               ),
                             );
                           }
@@ -538,7 +617,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 ),
                 borderData: FlBorderData(
                   show: true,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  border: const Border(bottom: BorderSide(color: AppColors.borderLight)),
                 ),
                 lineBarsData: [
                   LineChartBarData(
@@ -552,8 +631,8 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
                         radius: 3,
                         color: color,
-                        strokeColor: const Color(0xFF0C2A34),
-                        strokeWidth: 1,
+                        strokeColor: Colors.white,
+                        strokeWidth: 1.5,
                       ),
                     ),
                     belowBarData: BarAreaData(
@@ -561,7 +640,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.0)],
+                        colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.0)],
                       ),
                     ),
                   ),

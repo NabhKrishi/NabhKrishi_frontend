@@ -58,6 +58,4 @@ __pycache__/
 
 # Local AI data
 **/data/
-gena_ai/models/best_swin_t_wheat_fixed.pth
-
-gena_ai/models/best_swin_t_wheat_fixed.pth
+gena_ai/models/best_swin_tiny_wheat/

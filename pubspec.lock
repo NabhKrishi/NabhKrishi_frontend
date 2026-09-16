@@ -121,6 +121,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
+  dart_earcut:
+    dependency: transitive
+    description:
+      name: dart_earcut
+      sha256: e485001bfc05dcbc437d7bfb666316182e3522d4c3f9668048e004d0eb2ce43b
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.0"
+  dart_polylabel2:
+    dependency: transitive
+    description:
+      name: dart_polylabel2
+      sha256: "7eeab15ce72894e4bdba6a8765712231fc81be0bd95247de4ad9966abc57adc6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   equatable:
     dependency: transitive
     description:
@@ -274,10 +290,18 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_map
-      sha256: "87cc8349b8fa5dccda5af50018c7374b6645334a0d680931c1fe11bce88fa5bb"
+      sha256: "9bbe5472f66ae648d2ca2efbce97fcaa04e71261fabd3e062f26728222d7f767"
       url: "https://pub.dev"
     source: hosted
-    version: "6.2.1"
+    version: "8.3.2"
+  flutter_markdown_plus:
+    dependency: "direct main"
+    description:
+      name: flutter_markdown_plus
+      sha256: fce641d6c2106cc495de1cd603f97a4f9d615a97a64011928ded380dbdade935
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.12"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -324,10 +348,10 @@ packages:
     dependency: "direct main"
     description:
       name: geolocator
-      sha256: "6cb9fb6e5928b58b9a84bdf85012d757fd07aab8215c5205337021c4999bad27"
+      sha256: d2ec66329cab29cb297d51d96c067d457ca519dca8589665fa0b82ebacb7dbe4
       url: "https://pub.dev"
     source: hosted
-    version: "11.1.0"
+    version: "13.0.2"
   geolocator_android:
     dependency: transitive
     description:
@@ -356,10 +380,10 @@ packages:
     dependency: transitive
     description:
       name: geolocator_web
-      sha256: "49d8f846ebeb5e2b6641fe477a7e97e5dd73f03cbfef3fd5c42177b7300fb0ed"
+      sha256: "19e485a0f8d6a88abcf9c53cba3a4105e14b7435ed8ac1c108c067b938fe8429"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.0"
+    version: "4.1.4"
   geolocator_windows:
     dependency: transitive
     description:
@@ -548,10 +572,10 @@ packages:
     dependency: "direct main"
     description:
       name: latlong2
-      sha256: "98227922caf49e6056f91b6c56945ea1c7b166f28ffcd5fb8e72fc0b453cc8fe"
+      sha256: "84b776b100a84a684a0aaa3fa4dc2c9b1931c658de533701ee4e09bfa991f8dc"
       url: "https://pub.dev"
     source: hosted
-    version: "0.9.1"
+    version: "0.10.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -592,14 +616,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
-  logger:
-    dependency: transitive
-    description:
-      name: logger
-      sha256: "25aee487596a6257655a1e091ec2ae66bc30e7af663592cc3a27e6591e05035c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.7.0"
   logging:
     dependency: transitive
     description:
@@ -616,6 +632,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
+  markdown:
+    dependency: transitive
+    description:
+      name: markdown
+      sha256: ee85086ad7698b42522c6ad42fe195f1b9898e4d974a1af4576c1a3a176cada9
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.3.1"
   matcher:
     dependency: transitive
     description:
@@ -760,14 +784,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.8"
-  polylabel:
-    dependency: transitive
-    description:
-      name: polylabel
-      sha256: "41b9099afb2aa6c1730bdd8a0fab1400d287694ec7615dd8516935fa3144214b"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
   proj4dart:
     dependency: transitive
     description:

@@ -1,19 +1,39 @@
-import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
+import '../services/area_calculator.dart';
+import 'farm_boundary.dart';
+
+/// The 4 distinct interactive states of the farm map as specified by the team:
+/// 1. [normal]: Standard interactive map with GPS and "Draw Farm Boundary" button.
+/// 2. [drawing]: Active finger-tracing mode. Map gestures are locked; green line follows touch.
+/// 3. [preview]: Drawing finished. Auto-closed translucent polygon with calculated area; [Redraw] or [Confirm].
+/// 4. [saved]: Boundary confirmed and persisted locally; displays area and saved polygon.
+enum FarmMapMode {
+  normal,
+  drawing,
+  preview,
+  saved,
+}
 
 class LocationData {
   final double latitude;
   final double longitude;
   final List<LatLng> boundary;
-  final bool isDrawing;
+  final List<LatLng> temporaryDrawingPoints;
+  final FarmMapMode mapMode;
+  final FarmBoundary? activeBoundary;
   final bool isLocating;
   final String? gpsError;
+
+  bool get isDrawing => mapMode == FarmMapMode.drawing;
 
   LocationData({
     required this.latitude,
     required this.longitude,
     required this.boundary,
-    this.isDrawing = false,
+    this.temporaryDrawingPoints = const [],
+    this.mapMode = FarmMapMode.normal,
+    this.activeBoundary,
+    bool? isDrawing,
     this.isLocating = false,
     this.gpsError,
   });
@@ -22,62 +42,66 @@ class LocationData {
     double? latitude,
     double? longitude,
     List<LatLng>? boundary,
+    List<LatLng>? temporaryDrawingPoints,
+    FarmMapMode? mapMode,
+    FarmBoundary? activeBoundary,
+    bool clearActiveBoundary = false,
     bool? isDrawing,
     bool? isLocating,
     String? gpsError,
   }) {
+    FarmMapMode resolvedMode = mapMode ?? this.mapMode;
+    if (isDrawing != null && mapMode == null) {
+      resolvedMode = isDrawing ? FarmMapMode.drawing : FarmMapMode.normal;
+    }
+
     return LocationData(
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       boundary: boundary ?? this.boundary,
-      isDrawing: isDrawing ?? this.isDrawing,
+      temporaryDrawingPoints: temporaryDrawingPoints ?? this.temporaryDrawingPoints,
+      mapMode: resolvedMode,
+      activeBoundary: clearActiveBoundary ? null : (activeBoundary ?? this.activeBoundary),
       isLocating: isLocating ?? this.isLocating,
       gpsError: gpsError, // cleared if not explicitly passed
     );
   }
 
   /// Calculates the centroid of the farm boundary polygon.
-  /// If the boundary is empty, returns the current latitude and longitude.
+  /// If boundary is empty, returns current latitude and longitude.
   LatLng get centroid {
+    if (activeBoundary != null && activeBoundary!.points.isNotEmpty) {
+      return activeBoundary!.centroid;
+    }
     if (boundary.isEmpty) {
       return LatLng(latitude, longitude);
     }
-    
+
     double latSum = 0;
     double lngSum = 0;
     for (final point in boundary) {
       latSum += point.latitude;
       lngSum += point.longitude;
     }
-    
+
     return LatLng(latSum / boundary.length, lngSum / boundary.length);
   }
 
-  /// Calculates the approximate area of the farm boundary in hectares.
-  /// Uses planar Shoelace projection relative to centroid center.
+  /// Calculates the geographic area of the farm boundary in hectares.
   double get farmAreaHectares {
+    if (activeBoundary != null) {
+      return activeBoundary!.areaHectares;
+    }
     if (boundary.length < 3) return 0.0;
+    return AreaCalculator.calculateAreaHectares(boundary);
+  }
 
-    final center = centroid;
-    final latCenterRad = center.latitude * 3.141592653589793 / 180.0;
-
-    final List<double> xCoords = [];
-    final List<double> yCoords = [];
-
-    for (final pt in boundary) {
-      // Longitude to meters relative to center
-      xCoords.add(pt.longitude * 111320.0 * math.cos(latCenterRad));
-      // Latitude to meters relative to center
-      yCoords.add(pt.latitude * 110540.0);
+  /// Calculates the geographic area of the farm boundary in acres.
+  double get farmAreaAcres {
+    if (activeBoundary != null) {
+      return activeBoundary!.areaAcres;
     }
-
-    double area = 0.0;
-    int j = boundary.length - 1;
-    for (int i = 0; i < boundary.length; i++) {
-      area += (xCoords[j] + xCoords[i]) * (yCoords[j] - yCoords[i]);
-      j = i;
-    }
-
-    return (area.abs() / 2.0) / 10000.0;
+    if (boundary.length < 3) return 0.0;
+    return AreaCalculator.calculateAreaAcres(boundary);
   }
 }

@@ -57,51 +57,155 @@ class PpoDecision {
   bool get isRecheck => actionId == 4;
 
   /// Localized farmer description
-  String getLocalizedDescription(bool isHindi) {
-    if (isHindi && descriptionHi != null && descriptionHi!.isNotEmpty) {
+  String getLocalizedDescription([dynamic languageOrIsHindi]) {
+    String lang = 'en';
+    if (languageOrIsHindi is bool) {
+      lang = languageOrIsHindi ? 'hi' : 'en';
+    } else if (languageOrIsHindi is String) {
+      lang = languageOrIsHindi.toLowerCase().trim();
+    }
+    final isHi = lang == 'hi' || lang == 'hindi';
+    if (isHi && descriptionHi != null && descriptionHi!.isNotEmpty) {
       return descriptionHi!;
     }
-    return descriptionEn ?? _defaultDescription(actionId, isHindi);
+    return _defaultDescriptionByLang(actionId, lang, descriptionEn);
   }
 
-  static String _defaultDescription(int id, bool isHindi) {
+  static String _defaultDescriptionByLang(int id, String lang, String? defaultEn) {
+    if (lang == 'pa' || lang == 'punjabi') {
+      switch (id) {
+        case 0: return 'ਆਪਣੀ ਫ਼ਸਲ ਦੀ ਆਮ ਵਾਂਗ ਨਿਯਮਿਤ ਨਿਗਰਾਨੀ ਜਾਰੀ ਰੱਖੋ।';
+        case 1: return 'ਰੋਗ ਤੋਂ ਬਚਾਅ ਲਈ ਸ਼ੁਰੂਆਤੀ ਫ਼ਸਲ ਪ੍ਰਬੰਧਨ ਦੀ ਸਮੀਖਿਆ ਕਰੋ।';
+        case 2: return 'ਸਿੰਚਾਈ ਜਾਂ ਖ਼ੁਰਾਕੀ ਤੱਤਾਂ ਦੀ ਸਮੀਖਿਆ ਜ਼ਰੂਰੀ ਹੈ।';
+        case 3: return 'ਰੋਗ ਪ੍ਰਬੰਧਨ ਅਤੇ ਕੀਟਨਾਸ਼ਕ/ਉੱਲੀਨਾਸ਼ਕ ਉਪਾਵਾਂ ਦੀ ਸਲਾਹ ਦਿੱਤੀ ਜਾਂਦੀ ਹੈ।';
+        case 4: return 'ਸਹੀ ਨਤੀਜੇ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਕਣਕ ਦੇ ਪੱਤੇ ਦੀ ਇੱਕ ਹੋਰ ਸਾਫ਼ ਫੋਟੋ ਲਓ।';
+        case 5: return 'ਇਸ ਵਿਸ਼ੇ ਤੇ ਨਾਭਕ੍ਰਿਸ਼ੀ AI ਤੋਂ ਸਲਾਹ ਲਵੋ।';
+        default: return 'ਫ਼ਸਲ ਦੀ ਨਿਗਰਾਨੀ ਜਾਰੀ ਰੱਖੋ।';
+      }
+    }
+    if (lang == 'bn' || lang == 'bengali') {
+      switch (id) {
+        case 0: return 'আপনার ফসলের স্বাভাবিক নিয়মিত পর্যবেক্ষণ চালিয়ে যান।';
+        case 1: return 'রোগ প্রতিরোধের জন্য প্রাথমিক ফসল ব্যবস্থাপনার পর্যালোচনা করুন।';
+        case 2: return 'সেচ অথবা পুষ্টি উপাদান ব্যবস্থাপনা পর্যালোচনা করা প্রয়োজন।';
+        case 3: return 'রোগ ব্যবস্থাপনা ও প্রতিরক্ষামূলক ব্যবস্থা পর্যালোচনা করুন।';
+        case 4: return 'সঠিক ফলাফলের জন্য গমের পাতার আরও একটি স্পষ্ট ছবি তুলুন।';
+        case 5: return 'এই বিষয়ে নভকৃষি AI-এর সাথে পরামর্শ করুন।';
+        default: return 'ফসলের পর্যবেক্ষণ চালিয়ে যান।';
+      }
+    }
+    if (lang == 'hr' || lang == 'haryanvi') {
+      switch (id) {
+        case 0: return 'फसल की रोज बरती निगरानी जारी राखो।';
+        case 1: return 'बीमारी तै बचाव खातर खेत की सुरुआती सार संभाल देखो।';
+        case 2: return 'पाणी अर खाद की मात्रा की जांच जरूरी सै।';
+        case 3: return 'बीमारी तै बचाव के छिड़काव की सलाह दी जावै सै।';
+        case 4: return 'सटीक नतीजे खातर गेहूं के पत्ते की एक अर साफ फोटो खींचो।';
+        case 5: return 'इस बारे में नभ AI तै बातचीत करो।';
+        default: return 'फसल की देखरेख जारी राखो।';
+      }
+    }
+    if (lang == 'hi' || lang == 'hindi') {
+      switch (id) {
+        case 0: return 'अपनी फसल की सामान्य रूप से नियमित निगरानी जारी रखें।';
+        case 1: return 'रोग से बचाव हेतु प्रारंभिक फसल प्रबंधन की समीक्षा करें।';
+        case 2: return 'सिंचाई अथवा पोषक तत्व प्रबंधन की समीक्षा आवश्यक है।';
+        case 3: return 'रोग प्रबंधन और सुरक्षात्मक उपायों की समीक्षा की सलाह दी जाती है।';
+        case 4: return 'सटीक परिणाम हेतु कृपया गेहूं पत्ती की एक और स्पष्ट फोटो लें।';
+        case 5: return 'इस विषय पर नाभकृषि एआई से परामर्श करें।';
+        default: return 'फसल की निगरानी जारी रखें।';
+      }
+    }
+    if (lang == 'hinglish' || lang.contains('hinglish')) {
+      switch (id) {
+        case 0: return 'Apni fasal ki regular nigrani jari rakhein.';
+        case 1: return 'Rog se bachav ke shuruati prabandhan ki samiksha karein.';
+        case 2: return 'Sinchai ya poshak tatva prabandhan ki samiksha zaroori hai.';
+        case 3: return 'Rog prabandhan aur bachav upayo ki salah di jaati hai.';
+        case 4: return 'Sahi result ke liye kripya patti ki ek aur saaf photo lein.';
+        case 5: return 'Is vishay par NabhKrishi AI se salah lein.';
+        default: return 'Fasal ki nigrani jari rakhein.';
+      }
+    }
+    return defaultEn ?? _defaultDescriptionEn(id);
+  }
+
+  static String _defaultDescriptionEn(int id) {
     switch (id) {
-      case 0:
-        return isHindi ? 'अपनी फसल की सामान्य रूप से नियमित निगरानी जारी रखें।' : 'Continue monitoring your crop under standard management.';
-      case 1:
-        return isHindi ? 'रोग से बचाव हेतु प्रारंभिक फसल प्रबंधन की समीक्षा करें।' : 'Preventive crop-management review is recommended.';
-      case 2:
-        return isHindi ? 'सिंचाई अथवा पोषक तत्व प्रबंधन की समीक्षा आवश्यक है।' : 'Irrigation or nutrient management needs review.';
-      case 3:
-        return isHindi ? 'रोग प्रबंधन और सुरक्षात्मक उपायों की समीक्षा की सलाह दी जाती है।' : 'Disease-management review is recommended.';
-      case 4:
-        return isHindi ? 'सटीक परिणाम हेतु कृपया गेहूं पत्ती की एक और स्पष्ट फोटो लें।' : 'Please capture another clear image for rechecking.';
-      case 5:
-        return isHindi ? 'इस विषय पर नाभकृषि एआई से परामर्श करें।' : "Let's discuss this with NabhKrishi AI.";
-      default:
-        return isHindi ? 'फसल की निगरानी जारी रखें।' : 'Continue monitoring your crop.';
+      case 0: return 'Continue monitoring your crop under standard management.';
+      case 1: return 'Preventive crop-management review is recommended.';
+      case 2: return 'Irrigation or nutrient management needs review.';
+      case 3: return 'Disease-management review is recommended.';
+      case 4: return 'Please capture another clear image for rechecking.';
+      case 5: return "Let's discuss this with NabhKrishi AI.";
+      default: return 'Continue monitoring your crop.';
     }
   }
 
   /// Localized action title
-  String getLocalizedActionName(bool isHindi) {
-    if (!isHindi) return actionName;
-    switch (actionId) {
-      case 0:
-        return 'फसल निगरानी (Monitor)';
-      case 1:
-        return 'बचाव प्रबंधन समीक्षा (Preventive)';
-      case 2:
-        return 'सिंचाई / पोषण समीक्षा (Irrigation/Nutrient)';
-      case 3:
-        return 'रोग प्रबंधन समीक्षा (Disease Management)';
-      case 4:
-        return 'पुनः जांच (Recheck Photo)';
-      case 5:
-        return 'नाभकृषि चैटबॉट से पूछें (Ask AI)';
-      default:
-        return actionName;
+  String getLocalizedActionName([dynamic languageOrIsHindi]) {
+    String lang = 'en';
+    if (languageOrIsHindi is bool) {
+      lang = languageOrIsHindi ? 'hi' : 'en';
+    } else if (languageOrIsHindi is String) {
+      lang = languageOrIsHindi.toLowerCase().trim();
     }
+    if (lang == 'pa' || lang == 'punjabi') {
+      switch (actionId) {
+        case 0: return 'ਫ਼ਸਲ ਨਿਗਰਾਨੀ (Monitor)';
+        case 1: return 'ਬਚਾਅ ਪ੍ਰਬੰਧਨ ਸਮੀਖਿਆ (Preventive)';
+        case 2: return 'ਸਿੰਚਾਈ / ਖ਼ੁਰਾਕ ਸਮੀਖਿਆ (Irrigation/Nutrient)';
+        case 3: return 'ਰੋਗ ਪ੍ਰਬੰਧਨ ਸਮੀਖਿਆ (Disease Management)';
+        case 4: return 'ਦੁਬਾਰਾ ਫੋਟੋ ਲਓ (Recheck Photo)';
+        case 5: return 'ਨਾਭਕ੍ਰਿਸ਼ੀ AI ਤੋਂ ਪੁੱਛੋ (Ask AI)';
+        default: return actionName;
+      }
+    }
+    if (lang == 'bn' || lang == 'bengali') {
+      switch (actionId) {
+        case 0: return 'ফসল পর্যবেক্ষণ (Monitor)';
+        case 1: return 'প্রতিরোধমূলক ব্যবস্থা (Preventive)';
+        case 2: return 'সেচ ও পুষ্টি পর্যালোচনা (Irrigation/Nutrient)';
+        case 3: return 'রোগ ব্যবস্থাপনা পর্যালোচনা (Disease Management)';
+        case 4: return 'পুনরায় ছবি তুলুন (Recheck Photo)';
+        case 5: return 'নভকৃষি AI-কে জিজ্ঞাসা করুন (Ask AI)';
+        default: return actionName;
+      }
+    }
+    if (lang == 'hr' || lang == 'haryanvi') {
+      switch (actionId) {
+        case 0: return 'फसल देखरेख (Monitor)';
+        case 1: return 'बचाव जांच (Preventive)';
+        case 2: return 'पाणी / खाद पड़ताल (Irrigation/Nutrient)';
+        case 3: return 'बीमारी रोकथाम (Disease Management)';
+        case 4: return 'दोबारा फोटो खींचो (Recheck Photo)';
+        case 5: return 'नभ AI तै पूछो (Ask AI)';
+        default: return actionName;
+      }
+    }
+    if (lang == 'hi' || lang == 'hindi') {
+      switch (actionId) {
+        case 0: return 'फसल निगरानी (Monitor)';
+        case 1: return 'बचाव प्रबंधन समीक्षा (Preventive)';
+        case 2: return 'सिंचाई / पोषण समीक्षा (Irrigation/Nutrient)';
+        case 3: return 'रोग प्रबंधन समीक्षा (Disease Management)';
+        case 4: return 'पुनः जांच (Recheck Photo)';
+        case 5: return 'नाभकृषि चैटबॉट से पूछें (Ask AI)';
+        default: return actionName;
+      }
+    }
+    if (lang == 'hinglish' || lang.contains('hinglish')) {
+      switch (actionId) {
+        case 0: return 'Fasal Nigrani (Monitor)';
+        case 1: return 'Bachav Prabandhan (Preventive)';
+        case 2: return 'Sinchai / Poshan Review';
+        case 3: return 'Rog Prabandhan Review';
+        case 4: return 'Dobara Photo Lein (Recheck)';
+        case 5: return 'NabhKrishi Chatbot se Poochhein (Ask AI)';
+        default: return actionName;
+      }
+    }
+    return actionName;
   }
 }
 
@@ -148,11 +252,108 @@ class CropDiseaseResult {
     'yellow rust': 'पीला रतुआ (Yellow Rust)',
   };
 
+  /// Map English class names to Punjabi representations.
+  static const Map<String, String> _punjabiDiseaseMap = {
+    'aphid': 'ਤੇਲਾ / ਚੇਪਾ (Aphid)',
+    'black rust': 'ਕਾਲਾ ਰਤੂਆ / ਤਣਾ ਰਤੂਆ (Black Rust)',
+    'blast': 'ਕਣਕ ਦਾ ਝੁਲਸਾ / ਬਲਾਸਟ (Blast)',
+    'brown rust': 'ਭੂਰਾ ਰਤੂਆ (Brown Rust)',
+    'common root rot': 'ਜੜ੍ਹ ਗਲਣ (Common Root Rot)',
+    'fusarium head blight': 'ਫਿਊਜ਼ੇਰੀਅਮ ਸਿੱਟਾ ਝੁਲਸਾ (Head Blight)',
+    'healthy': 'ਸਿਹਤਮੰਦ ਪੱਤਾ (Healthy)',
+    'leaf blight': 'ਪੱਤਾ ਝੁਲਸਾ ਰੋਗ (Leaf Blight)',
+    'mildew': 'ਚੂਰਨਿਲ ਉੱਲੀ / ਪਾਊਡਰੀ ਮਿਲਡਿਊ (Mildew)',
+    'mite': 'ਜੂੰ / ਮਾਈਟ (Mite)',
+    'septoria': 'ਸੈਪਟੋਰੀਆ ਪੱਤਾ ਧੱਬਾ (Septoria)',
+    'smut': 'ਕਾਂਗਿਆਰੀ / ਸਮੱਟ (Smut)',
+    'stem fly': 'ਤਣਾ ਮੱਖੀ (Stem Fly)',
+    'tan spot': 'ਟੈਨ ਸਪੌਟ (Tan Spot)',
+    'yellow rust': 'ਪੀਲਾ ਰਤੂਆ / ਕੁੰਗੀ (Yellow Rust)',
+  };
+
+  /// Map English class names to Bengali representations.
+  static const Map<String, String> _bengaliDiseaseMap = {
+    'aphid': 'জাব পোকা (Aphid)',
+    'black rust': 'কালো মরিচা রোগ (Black Rust)',
+    'blast': 'গমের ব্লাস্ট রোগ (Wheat Blast)',
+    'brown rust': 'বাদামী মরিচা রোগ (Brown Rust)',
+    'common root rot': 'শিকড় পচা রোগ (Root Rot)',
+    'fusarium head blight': 'ফিউজেরিয়াম হেড ব্লাইট (Head Blight)',
+    'healthy': 'সুস্থ পাতা (Healthy)',
+    'leaf blight': 'পাতা ঝলসানো রোগ (Leaf Blight)',
+    'mildew': 'পাউডারি মিলডিউ (Mildew)',
+    'mite': 'মাকড় (Mite)',
+    'septoria': 'সেপ্টোরিয়া দাগ (Septoria)',
+    'smut': 'আলগা স্মাট / ঝুল রোগ (Smut)',
+    'stem fly': 'কাণ্ড মাছি (Stem Fly)',
+    'tan spot': 'ট্যান স্পট (Tan Spot)',
+    'yellow rust': 'হলুদ মরিচা রোগ (Yellow Rust)',
+  };
+
+  /// Map English class names to Haryanvi representations.
+  static const Map<String, String> _haryanviDiseaseMap = {
+    'aphid': 'माहू / चेपा (Aphid)',
+    'black rust': 'काळा रतुआ (Black Rust)',
+    'blast': 'गेहूं का झुलसा (Blast)',
+    'brown rust': 'भूरा रतुआ (Brown Rust)',
+    'common root rot': 'जड़ गलन (Root Rot)',
+    'fusarium head blight': 'हेड ब्लाइट (Head Blight)',
+    'healthy': 'नीरोगी पत्ता (Healthy)',
+    'leaf blight': 'पत्ता झुलसा (Leaf Blight)',
+    'mildew': 'पाउडरी मिल्ड्यू (Mildew)',
+    'mite': 'मकड़ी / माइट (Mite)',
+    'septoria': 'सेप्टोरिया चित्ती (Septoria)',
+    'smut': 'कंडुआ / कांगियारी (Smut)',
+    'stem fly': 'तना माखी (Stem Fly)',
+    'tan spot': 'टैन चित्ती (Tan Spot)',
+    'yellow rust': 'पीळा रतुआ (Yellow Rust)',
+  };
+
+  /// Map English class names to Hinglish / Romanized Hindi representations.
+  static const Map<String, String> _hinglishDiseaseMap = {
+    'aphid': 'Maahu / Aphid',
+    'black rust': 'Kaala Ratua (Black Rust)',
+    'blast': 'Gehun ka Jhulsa / Blast',
+    'brown rust': 'Bhoora Ratua (Brown Rust)',
+    'common root rot': 'Jadd Sadhan (Common Root Rot)',
+    'fusarium head blight': 'Fusarium Head Blight',
+    'healthy': 'Swasth Patti (Healthy)',
+    'leaf blight': 'Patti Jhulsa Rog (Leaf Blight)',
+    'mildew': 'Powdery Mildew',
+    'mite': 'Makdi / Mite',
+    'septoria': 'Septoria Leaf Blotch',
+    'smut': 'Kandua Rog / Smut',
+    'stem fly': 'Tana Makkhi (Stem Fly)',
+    'tan spot': 'Tan Spot',
+    'yellow rust': 'Peela Ratua (Yellow Rust)',
+  };
+
   /// Returns localized disease name depending on language preference.
-  String getLocalizedDiseaseName(bool isHindi) {
-    if (!isHindi) return diseaseName;
+  String getLocalizedDiseaseName([dynamic languageOrIsHindi]) {
+    String lang = 'en';
+    if (languageOrIsHindi is bool) {
+      lang = languageOrIsHindi ? 'hi' : 'en';
+    } else if (languageOrIsHindi is String) {
+      lang = languageOrIsHindi.toLowerCase().trim();
+    }
+
     final key = diseaseName.toLowerCase().trim();
-    return _hindiDiseaseMap[key] ?? diseaseName;
+    if (lang == 'pa' || lang == 'punjabi') {
+      return _punjabiDiseaseMap[key] ?? _hindiDiseaseMap[key] ?? diseaseName;
+    }
+    if (lang == 'bn' || lang == 'bengali') {
+      return _bengaliDiseaseMap[key] ?? _hindiDiseaseMap[key] ?? diseaseName;
+    }
+    if (lang == 'hr' || lang == 'haryanvi') {
+      return _haryanviDiseaseMap[key] ?? _hindiDiseaseMap[key] ?? diseaseName;
+    }
+    if (lang == 'hi' || lang == 'hindi') {
+      return _hindiDiseaseMap[key] ?? diseaseName;
+    }
+    if (lang == 'hinglish' || lang.contains('hinglish')) {
+      return _hinglishDiseaseMap[key] ?? _hindiDiseaseMap[key] ?? diseaseName;
+    }
+    return _formatTitle(diseaseName);
   }
 }
 

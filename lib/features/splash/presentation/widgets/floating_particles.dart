@@ -30,7 +30,7 @@ class _FloatingParticlesState extends State<FloatingParticles>
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _ParticlePainter(controller.value),
             size: Size.infinite,
@@ -63,7 +63,7 @@ class _ParticlePainter extends CustomPainter {
       final y =
           ((size.height + 120) * ((t + i / 35) % 1)) - 80;
 
-      paint.color = Colors.white.withOpacity(.12);
+      paint.color = Colors.white.withValues(alpha: 0.12);
 
       canvas.drawCircle(
         Offset(x, size.height - y),
