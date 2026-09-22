@@ -86,7 +86,9 @@ NVIDIA Nemotron
 Grounded Response
       ↓
 User's Preferred Language
+
 This approach helps reduce unsupported or hallucinated agricultural recommendations.
+
 🌐 Multilingual Support
 NabhKrishi is designed to make agricultural information accessible in the farmer's preferred language.
 Supported Languages
