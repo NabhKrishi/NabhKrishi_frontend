@@ -2,76 +2,73 @@
 
 ### AI-Powered Smart Farming & Agricultural Decision Support Platform
 
-NabhKrishi is an AI-powered agricultural decision-support platform designed to help farmers make smarter, faster, and more informed decisions about their crops.
+> **Smarter Farming • Better Decisions • Sustainable Future**
 
-The platform combines **Artificial Intelligence, Computer Vision, Weather Data, Satellite Data, Farm Information, Reinforcement Learning, and Retrieval-Augmented Generation (RAG)** to provide personalized agricultural insights through a simple and multilingual mobile application.
+NabhKrishi is an AI-powered agricultural decision-support platform that brings together **Computer Vision, Reinforcement Learning, RAG, LLMs, satellite data, weather information, and farm-level data** to help farmers make more informed decisions.
 
----
-
-## 🚜 Problem
-
-Farmers often face challenges such as:
-
-- 🌾 Early identification of crop diseases and pests
-- 💧 Efficient water and irrigation management
-- 🌱 Soil and nutrient management
-- 🌦️ Changing weather conditions
-- 📊 Lack of personalized farm-level information
-- 🗣️ Limited access to agricultural information in regional languages
-- 💰 Improving productivity while maintaining sustainable farming practices
-
-Existing agricultural information is often fragmented across different sources.
-
-**NabhKrishi brings these capabilities together into one integrated platform.**
+The platform is designed to be **multi-crop, multilingual, scalable, and farmer-centric**, with the ability to expand across different crops, regions, and agricultural use cases.
 
 ---
 
-## 💡 Our Solution
+## 📸 About NabhKrishi
 
-NabhKrishi provides an intelligent workflow:
+NabhKrishi follows a simple workflow:
+
+**Farmer → Crop & Farm Data → AI Analysis → Decision Support → Agricultural Knowledge → Personalized Guidance**
+
+The goal is to make advanced agricultural technology accessible through a simple mobile application while keeping the farmer at the center of the decision-making process.
+
+---
+
+## 🚜 Key Features
+
+### 🔬 AI Crop Disease Detection
+
+NabhKrishi uses a **Swin Transformer (Swin-T)** based computer vision model for image-based crop health and disease analysis.
+
+**Capabilities:**
+
+- 📷 Crop image analysis
+- 🦠 Disease classification
+- 📊 Prediction confidence
+- 🌱 Crop-health insights
+- 🔄 Extensible architecture for additional crops and disease classes
+
+> The current vision model provides a foundation that can be expanded with additional validated agricultural datasets.
+
+---
+
+### 🤖 AI Decision Support
+
+NabhKrishi integrates a **PPO (Proximal Policy Optimization)** based decision-support system.
+
+The system can consider contextual information such as:
+
+- 🌱 Crop growth stage
+- 🦠 Disease information
+- 📊 Prediction confidence
+- 🌦️ Environmental conditions
+- 💧 Irrigation requirements
+- 📈 Agricultural and historical information
+
+The system provides **decision support** rather than replacing agricultural experts.
+
+---
+
+### 🧠 AI Agricultural Assistant
+
+NabhKrishi includes a knowledge-grounded agricultural chatbot powered by:
+
+- **NVIDIA Nemotron**
+- **Retrieval-Augmented Generation (RAG)**
+- **ChromaDB**
+- **BGE Embeddings**
+
+Instead of relying only on the LLM's internal knowledge, the system retrieves relevant agricultural information before generating a response.
+
+#### RAG Pipeline
 
 ```text
-Farmer
-   ↓
-Farm & Crop Information
-   ↓
-AI-Based Crop Analysis
-   ↓
-Decision Support
-   ↓
-Verified Agricultural Knowledge
-   ↓
-Personalized Guidance
-   ↓
-Better & Sustainable Farming
-The platform is designed to be extensible across multiple crops, regions, and agricultural use cases.
-✨ Key Features
-🔬 AI-Based Crop Disease Detection
-NabhKrishi uses a Swin Transformer (Swin-T) based computer vision model to analyze crop images and identify potential diseases or crop-health conditions.
-The system provides:
-- Disease classification
-- Prediction confidence
-- Crop-health insights
-- Image-based analysis
-The vision pipeline is designed to be extended with additional crops and disease classes as more validated datasets become available.
-🤖 AI Decision Support
-NabhKrishi integrates a PPO-based Reinforcement Learning decision-support model.
-The decision-support system considers contextual information such as:
-- Crop growth stage
-- Disease information
-- Prediction confidence
-- Environmental conditions
-- Irrigation requirements
-- Historical agricultural information
-The system produces a decision-support action rather than directly replacing agricultural experts.
-🧠 Agricultural AI Chatbot
-NabhKrishi includes an AI-powered agricultural assistant using:
-- NVIDIA Nemotron
-- Retrieval-Augmented Generation (RAG)
-- ChromaDB
-- BGE Embeddings
-The chatbot retrieves relevant agricultural knowledge before generating a response.
-RAG Pipeline
 User Question
       ↓
 Language Detection
@@ -84,24 +81,24 @@ ChromaDB
       ↓
 Relevant Agricultural Knowledge
       ↓
-Nemotron
+NVIDIA Nemotron
       ↓
 Grounded Response
       ↓
 User's Preferred Language
-The RAG layer is used to reduce unsupported or hallucinated agricultural recommendations.
+This approach helps reduce unsupported or hallucinated agricultural recommendations.
 🌐 Multilingual Support
-NabhKrishi is designed to make agricultural information accessible in multiple languages.
-Current supported interaction includes:
+NabhKrishi is designed to make agricultural information accessible in the farmer's preferred language.
+Supported Languages
 - 🇬🇧 English
 - 🇮🇳 Hindi
 - 🗣️ Hinglish
 - Punjabi
 - Haryanvi
 - Bengali
-The architecture is extensible so that additional regional languages can be added in the future.
+The architecture is designed to support additional regional languages in the future.
 🗺️ Smart Farm Mapping
-NabhKrishi allows farmers to digitally define their farm boundaries using GPS and interactive maps.
+Farmers can digitally define and manage their farm boundaries using GPS and interactive maps.
 Features
 - 📍 GPS-based location
 - 🗺️ Interactive 2D map
@@ -109,27 +106,31 @@ Features
 - 📐 Farm area calculation
 - 🌍 GeoJSON representation
 - 💾 Local farm-boundary persistence
-This creates a digital representation of the farmer's field that can support future satellite and farm-level analytics.
-🛰️ Satellite & Environmental Data
-NabhKrishi is designed to integrate environmental information such as:
-- Satellite observations
-- Weather data
-- Rainfall
-- Temperature
-- Soil information
-- Farm-level data
-These data sources can be combined to provide more contextual agricultural decision support.
+This creates a digital representation of the farm that can support future satellite, weather, and farm-level analytics.
+🛰️ Satellite & Environmental Intelligence
+NabhKrishi is designed to combine multiple agricultural data sources.
+Data Source	Possible Use
+🛰️ Satellite Data	Crop and land monitoring
+🌦️ Weather Data	Weather-aware decisions
+🌧️ Rainfall	Water and crop analysis
+🌡️ Temperature	Environmental context
+🌱 Soil Data	Soil and nutrient insights
+🚜 Farm Data	Personalized farm decisions
+📊 Crop Data	Crop-specific analysis
+
+
+Combining these sources allows NabhKrishi to move from generic agricultural information toward context-aware decision support.
 🌱 Sustainable Agriculture
-NabhKrishi is not only focused on productivity.
-The platform also promotes better:
+NabhKrishi focuses not only on productivity but also on sustainable resource management.
+The platform supports concepts related to:
 - 💧 Water management
 - 🌱 Soil management
 - 🧪 Input management
 - 🌾 Crop management
-- ♻️ Sustainable agricultural practices
-The long-term objective is to help farmers improve resource efficiency while maintaining productive and resilient farming systems.
+- ♻️ Sustainable farming practices
+The long-term objective is to help farmers improve resource efficiency, resilience, and sustainable agricultural outcomes.
 🌍 Carbon Credits & MRV
-NabhKrishi also explores how digital agricultural data can support Measurement, Reporting and Verification (MRV) for sustainable farming outcomes.
+NabhKrishi also explores the potential of using digital agricultural data for Measurement, Reporting and Verification (MRV) of sustainable farming outcomes.
 Satellite Data
       +
 Soil Data
@@ -147,55 +148,70 @@ Verified Agricultural Outcomes
 Potential Carbon Credit Eligibility
       ↓
 Potential Additional Farmer Revenue
-Carbon-credit generation depends on applicable methodologies, measurement requirements, verification, and market conditions.
-NabhKrishi provides the digital data and decision-support foundation that can potentially contribute to such workflows.
+MRV Framework
+Measure
+Collect information from:
+- Satellite
+- Soil
+- Weather
+- Farm data
+Report
+Maintain digital evidence of:
+- Farm practices
+- Inputs
+- Management activities
+- Agricultural outcomes
+Verify
+Enable verification of reported outcomes under an applicable methodology.
+Carbon-credit generation depends on applicable standards, methodologies, verification requirements, and market conditions. NabhKrishi provides a potential digital foundation for such workflows.
+
 🏗️ System Architecture
                     ┌─────────────────────┐
-                    │      FARMER         │
+                    │       FARMER        │
                     │   Flutter Mobile    │
                     └──────────┬──────────┘
                                │
                                ▼
                     ┌─────────────────────┐
-                    │     FastAPI         │
-                    │      Backend        │
+                    │       FastAPI       │
+                    │       Backend       │
                     └──────────┬──────────┘
                                │
              ┌─────────────────┼─────────────────┐
+             │                 │                 │
              ▼                 ▼                 ▼
-      ┌────────────┐    ┌────────────┐    ┌────────────┐
-      │  Swin-T    │    │    PPO     │    │    RAG     │
-      │ Vision AI  │    │ Decision AI│    │ Knowledge  │
-      └────────────┘    └────────────┘    └─────┬──────┘
-                                                │
-                                                ▼
-                                         ┌─────────────┐
-                                         │  Nemotron   │
-                                         │     LLM     │
-                                         └──────┬──────┘
-                                                │
-                                                ▼
-                                     Multilingual Guidance
+       ┌───────────┐     ┌───────────┐     ┌───────────┐
+       │  Swin-T   │     │    PPO    │     │    RAG    │
+       │ Vision AI │     │ Decision  │     │ Knowledge │
+       └───────────┘     └───────────┘     └─────┬─────┘
+                                                  │
+                                                  ▼
+                                          ┌──────────────┐
+                                          │  Nemotron    │
+                                          │     LLM      │
+                                          └──────┬───────┘
+                                                 │
+                                                 ▼
+                                      Multilingual Guidance
 🛠️ Technology Stack
-Layer	Technology
-Mobile App	Flutter + Dart
-Backend	Python + FastAPI
-Computer Vision	Swin Transformer + PyTorch
-Decision Support	PPO + Stable-Baselines3
-LLM	NVIDIA Nemotron
-RAG	ChromaDB
-Embeddings	BGE Embeddings
-Authentication	Firebase
-Database	Supabase / Firestore
-Maps	OpenStreetMap
-Location	GPS + Geolocator
-Farm Boundaries	GeoJSON
-ML/Data Processing	Python
-Deployment	API-based architecture
+Category	Technology
+📱 Mobile	Flutter + Dart
+⚙️ Backend	Python + FastAPI
+👁️ Computer Vision	Swin Transformer + PyTorch
+🤖 Decision AI	PPO + Stable-Baselines3
+🧠 LLM	NVIDIA Nemotron
+🔎 RAG	ChromaDB
+🔢 Embeddings	BGE Embeddings
+🔐 Authentication	Firebase
+🗄️ Database	Supabase + Firestore
+🗺️ Maps	OpenStreetMap
+📍 Location	GPS + Geolocator
+🌍 Farm Boundaries	GeoJSON
+🐍 Data Processing	Python
 
 
-📊 Model Performance
-The current crop-disease vision model achieved:
+📊 AI Model Performance
+The current validated crop-disease vision model achieved:
 Metric	Result
 Test Accuracy	91.60%
 Macro F1	89.87%
@@ -204,28 +220,30 @@ Macro Recall	91.60%
 Test Images	750
 
 
-The model currently contains multiple crop-disease classes and is designed as a foundation for expanding the vision system to additional crops and agricultural conditions.
+These metrics represent evaluation of the current vision model on its test dataset.
+Prediction confidence should not be interpreted as disease severity.
+
 🔄 End-to-End Workflow
 1. Farmer opens NabhKrishi
-              ↓
-2. Selects / records farm information
-              ↓
-3. Captures crop image
-              ↓
+             ↓
+2. Farm / crop information
+             ↓
+3. Crop image captured
+             ↓
 4. Swin-T analyzes the image
-              ↓
-5. Disease / crop-health prediction
-              ↓
+             ↓
+5. Crop-health / disease prediction
+             ↓
 6. PPO provides contextual decision support
-              ↓
-7. RAG retrieves relevant agricultural knowledge
-              ↓
+             ↓
+7. RAG retrieves relevant knowledge
+             ↓
 8. Nemotron generates a grounded response
-              ↓
-9. Response is provided in the farmer's preferred language
+             ↓
+9. Response delivered in preferred language
 👨‍🌾 Farmer-Centric Development
-NabhKrishi has been designed with direct farmer interaction in mind.
-Our team interacted with farmers to understand real-world challenges related to:
+NabhKrishi was developed with direct interaction with farmers and agricultural experts.
+Our team interacted with farmers to understand practical challenges related to:
 - Crop diseases
 - Irrigation
 - Soil and fertilizer management
@@ -233,26 +251,32 @@ Our team interacted with farmers to understand real-world challenges related to:
 - Language barriers
 - Farm-level decision making
 These interactions helped us focus on building a solution that is practical, accessible, and farmer-centric.
-We also discussed the concept with agricultural experts to understand practical farming requirements and the importance of field validation.
+We also discussed the concept with agricultural experts to understand real-world farming requirements and the importance of field validation.
 🔬 Data & Validation
-NabhKrishi combines multiple types of agricultural information, including:
-- Agricultural field data
-- Crop information
-- Weather information
-- Farm management information
-- Satellite observations
-- Crop images
-Model performance is evaluated using standard machine-learning metrics where applicable.
-Real-world agricultural deployment requires continued field validation, expert review, and region-specific testing.
+NabhKrishi combines multiple categories of agricultural information:
+- 🌾 Crop information
+- 🚜 Farm data
+- 🌦️ Weather information
+- 🛰️ Satellite observations
+- 🌱 Soil information
+- 📷 Crop images
+- 📊 Agricultural datasets
+The platform uses standard machine-learning evaluation metrics where applicable.
+Real-world agricultural deployment requires continued:
+- Field validation
+- Agricultural expert review
+- Region-specific testing
+- Dataset expansion
+- Model validation
 🚀 Future Scope
 NabhKrishi is designed as a scalable agricultural intelligence platform.
-Future development areas include:
-- 🌾 Expansion to more crops
-- 🛰️ More advanced satellite analytics
+Planned Expansion
+- 🌾 Support for additional crops
+- 🦠 Expanded disease and pest detection
+- 🛰️ Advanced satellite analytics
 - 🌦️ Weather forecasting integration
 - 💧 Improved irrigation decision support
 - 🌱 Soil-health intelligence
-- 🐛 Pest and disease monitoring
 - 🗣️ Additional regional languages
 - 📱 Offline / low-connectivity support
 - 📊 Farmer analytics dashboard
@@ -261,11 +285,11 @@ Future development areas include:
 - 💰 Carbon-market integration where applicable
 - 🔄 Continuous learning from validated field data
 🔐 Responsible AI
-NabhKrishi is designed as a decision-support system, not a replacement for agricultural experts.
+NabhKrishi is designed as a decision-support platform, not as a replacement for agricultural professionals.
 The platform aims to:
 - Ground chatbot responses in retrieved knowledge
-- Avoid unsupported treatment recommendations
-- Provide confidence information where applicable
+- Reduce unsupported agricultural recommendations
+- Provide prediction confidence where applicable
 - Encourage expert consultation when information is insufficient
 - Support continued field validation
 - Avoid presenting experimental outputs as guaranteed agricultural outcomes
@@ -297,4 +321,8 @@ NabhKrishi/
 🎯 Vision
 To build an intelligent, accessible, and sustainable digital farming ecosystem where farmers can use AI and data to make better agricultural decisions.
 
-NabhKrishi brings together AI + Agriculture + Data + Sustainability to create a scalable platform for the future of farming.
+NabhKrishi connects:
+AI + Agriculture + Data + Sustainability
+to create a scalable platform for the future of farming.
+🌱 NabhKrishi
+Smarter Farming. Better Decisions. Sustainable Future.
