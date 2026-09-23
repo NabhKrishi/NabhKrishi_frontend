@@ -197,65 +197,6 @@ Carbon-credit generation depends on applicable methodologies, verification requi
                                                   └──────┬──────┘
                                                          │
                                                          ▼
-                                              Multilingual Guidance ```text
+                                              Multilingual Guidance
 
-## 🛠️ Technology Stack
 
-| Component | Technology |
-|---|---|
-| Mobile Application | Flutter + Dart |
-| Backend | Python + FastAPI |
-| Computer Vision | Swin Transformer + PyTorch |
-| Decision Support | PPO + Stable-Baselines3 |
-| LLM | NVIDIA Nemotron |
-| RAG | ChromaDB |
-| Embeddings | BGE Embeddings |
-| Authentication | Firebase |
-| Database | Supabase + Firestore |
-| Maps | OpenStreetMap |
-| Location | GPS + Geolocator |
-| Farm Boundaries | GeoJSON |
-| Data Processing | Python |
-
----
-
-# 📊 Model Performance
-
-The current crop-disease vision model achieved:
-
-| Metric | Result |
-|---|---:|
-| Test Accuracy | **91.60%** |
-| Macro F1 | **89.87%** |
-| Macro Precision | **94.47%** |
-| Macro Recall | **91.60%** |
-| Test Images | **750** |
-
-The current model provides a foundation for expanding the vision system to additional crops and agricultural conditions.
-
-> **Note:** Prediction confidence should not be interpreted as disease severity.
-
----
-
-# 🔄 End-to-End Workflow
-
-```text
-Farmer
-   ↓
-Farm & Crop Information
-   ↓
-Crop Image
-   ↓
-Swin-T Analysis
-   ↓
-Disease / Crop-Health Prediction
-   ↓
-PPO Decision Support
-   ↓
-RAG Knowledge Retrieval
-   ↓
-Nemotron Response Generation
-   ↓
-Multilingual Guidance
-   ↓
-Farmer
