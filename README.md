@@ -197,8 +197,9 @@ Carbon-credit generation depends on applicable methodologies, verification requi
                                                   └──────┬──────┘
                                                          │
                                                          ▼
-                                              Multilingual Guidance
-# 🛠️ Technology Stack
+                                              Multilingual Guidance ```text
+
+## 🛠️ Technology Stack
 
 | Component | Technology |
 |---|---|
